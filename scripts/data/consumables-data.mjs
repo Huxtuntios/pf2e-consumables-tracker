@@ -183,6 +183,7 @@ function normalizeConsumable(item, actor) {
     actorId: actor.id,
     actorName: actor.name,
     actorImg: actor.img,
+    canOpen: true,
     canRequest: !game.user.isGM && actor.type === "character" && !actor.isOwner && actor.hasPlayerOwner && Number(item.system?.quantity ?? 1) > 0
   };
 }

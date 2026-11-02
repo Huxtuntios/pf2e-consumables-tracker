@@ -315,3 +315,5 @@
 
 .pf2e-consumables-tracker .pct-request-btn { flex: 0 0 auto; width: auto; align-self: center; }
 .pf2e-consumables-tracker .pct-checkbox { display: flex; gap: .4rem; align-items: center; }
+
+.pf2e-consumables-tracker .pct-share-warning { margin: .4rem .75rem; color: var(--color-level-warning, #9a5b00); }

@@ -7,6 +7,7 @@ import {
   getCategoryLabel,
   getTraitLabel
 } from "../data/consumables-data.mjs";
+import { getCombatNPCs, querySharedCombatAllies } from "../combat-consumables.mjs";
 import { createRequest } from "../requests.mjs";
 import { BlacklistConfigApp } from "./blacklist-config-app.mjs";
 
@@ -60,6 +61,9 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
     // deleted (though _prepareContext already falls back gracefully if so), and a leftover
     // search term is more likely to cause "why is this empty" confusion than help.
     const persisted = game.settings.get(MODULE_ID, "lastFilters") ?? {};
+    this.allyCache = null;
+    this.allyRevision = 0;
+    this.allyRefreshTimer = null;
     this.filters = {
       viewMode: persisted.viewMode ?? "party",
       actorId: null,
@@ -100,6 +104,8 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
    * don't needlessly construct/render the app when nobody has it open. */
   static refreshOpenInstance() {
     if (ConsumablesTrackerApp.#instance?.rendered) {
+      ConsumablesTrackerApp.#instance.allyCache = null;
+      ConsumablesTrackerApp.#instance.allyRevision++;
       ConsumablesTrackerApp.#instance.render();
     }
   }
@@ -118,6 +124,8 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
 
   /** @override */
   _onClose(options) {
+    clearInterval(this.allyRefreshTimer);
+    this.allyRefreshTimer = null;
     super._onClose(options);
     // Allow a fresh instance (with reset filters) next time the tracker is opened.
     if (ConsumablesTrackerApp.#instance === this) ConsumablesTrackerApp.#instance = null;
@@ -193,16 +201,28 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
     });
 
     const visibleActors = trackedActors.filter(a => isGM || a.testUserPermission(game.user, "OBSERVER"));
-    if (isGM && this.filters.showEnemies && canvas?.ready) {
+    if (isGM && this.filters.showEnemies) {
       const seen = new Set(visibleActors.map(a => a.uuid));
-      for (const token of canvas.tokens.placeables) {
-        const actor = token.actor;
-        if (token.document.disposition !== CONST.TOKEN_DISPOSITIONS.HOSTILE || actor?.type !== "npc" || seen.has(actor.uuid)) continue;
-        seen.add(actor.uuid);
-        visibleActors.push(actor);
+      for (const {actor} of getCombatNPCs(game.combats?.active, CONST.TOKEN_DISPOSITIONS.HOSTILE)) {
+        if (!seen.has(actor.uuid)) { seen.add(actor.uuid); visibleActors.push(actor); }
       }
     }
     let items = visibleActors.flatMap((actor) => getActorConsumables(actor, { ignoreContainerItems, blacklist }));
+    let shareError = false;
+    if (!isGM && game.settings.get(MODULE_ID, "shareCombatAllies")) {
+      const combatId = game.combats?.active?.active ? game.combats.active.id : null;
+      const gmId = game.users.activeGM?.id ?? null;
+      if (!this.allyCache || this.allyCache.combatId !== combatId || this.allyCache.gmId !== gmId || Date.now() - this.allyCache.time > 8000) {
+        const revision = this.allyRevision;
+        const result = await querySharedCombatAllies();
+        if (revision === this.allyRevision) this.allyCache = {combatId, gmId, time:Date.now(), ...result};
+      }
+      if (this.allyCache && game.settings.get(MODULE_ID, "shareCombatAllies") && game.combats?.active?.active &&
+          this.allyCache.combatId === game.combats.active.id && this.allyCache.gmId === (game.users.activeGM?.id ?? null)) {
+        items.push(...this.allyCache.items);
+        shareError = this.allyCache.error;
+      }
+    }
 
     const searchTerm = (this.filters.search ?? "").trim().toLowerCase();
     if (searchTerm) {
@@ -223,6 +243,7 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
 
     return {
       isGM,
+      shareError,
       showRecipientSelect: !isGM && recipients.length > 0,
       recipientChoices: recipients.map(a => ({ id: a.id, name: a.name, selected: a.id === this.filters.recipientId })),
       filters: this.filters,
@@ -280,6 +301,15 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
   _onRender(context, options) {
     super._onRender(context, options);
     const root = this.element;
+    if (!game.user.isGM && !this.allyRefreshTimer) {
+      this.allyRefreshTimer = setInterval(() => {
+        if (this.rendered && game.settings.get(MODULE_ID, "shareCombatAllies")) {
+          this.allyCache = null;
+          this.allyRevision++;
+          this.render();
+        }
+      }, 10000);
+    }
 
     for (const el of root.querySelectorAll("select[data-filter]")) {
       el.addEventListener("change", this.#onFilterChange.bind(this));
@@ -335,6 +365,8 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
   /** Manual refresh button, for the rare case a change wasn't caught by the document hooks. */
   static #onRefresh(event, _target) {
     event.preventDefault();
+    this.allyCache = null;
+    this.allyRevision++;
     this.render();
   }
 }

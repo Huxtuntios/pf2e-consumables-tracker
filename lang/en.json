@@ -66,6 +66,10 @@
         "Name": "Consumables Blacklist",
         "Label": "Configure Blacklist",
         "Hint": "Choose specific consumables (by name or id) to always hide from the tracker."
+      },
+      "ShareCombatAllies": {
+        "Name": "Show players allied NPC consumables in combat",
+        "Hint": "Shares token names and identified item names, quantities and other displayed details with all players even if they cannot access the NPC sheet. Only visible friendly NPC combatants in the active combat are included. Off by default; hidden tokens and combatants are excluded."
       }
     },
     "Keybinding": {
@@ -82,7 +86,7 @@
       "Save": "Save",
       "Cancel": "Cancel"
     },
-    "Enemies": "Show hostile tokens on scene",
+    "Enemies": "Show enemy consumables in combat",
     "Recipient": "Recipient",
     "Request": "Request",
     "Take": "Take",
@@ -110,6 +114,7 @@
     "Use": "Use",
     "UsePrompt": "Use {item} on {target} via the system?",
     "UseUnavailable": "The item is unavailable or this system version does not support use via this button; open its sheet.",
-    "ToolbeltUseSheet": "Opened {target}. In the inventory, find {item} and click Toolbelt’s use button (▶). If it is missing, check identification and Toolbelt settings; nothing was consumed automatically."
+    "ToolbeltUseSheet": "Opened {target}. In the inventory, find {item} and click Toolbelt’s use button (▶). If it is missing, check identification and Toolbelt settings; nothing was consumed automatically.",
+    "ShareUnavailable": "Could not load allied NPC consumables. An active GM and Foundry permission to query users are required."
   }
 }

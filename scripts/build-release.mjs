@@ -9,7 +9,7 @@ const base = `https://github.com/${repo}`;
 Object.assign(manifest, {url:base, manifest:`${base}/releases/latest/download/module.json`, download:`${base}/releases/download/${tag}/module.zip`});
 await rm('dist', {recursive:true, force:true});
 await mkdir('dist/module', {recursive:true});
-for (const entry of ['scripts','styles','templates','lang','LICENSE.txt','README.md','GUIDE.md']) await cp(entry, `dist/module/${entry}`, {recursive:true});
+for (const entry of ['scripts','styles','templates','lang','LICENSE.txt','README.md','README.ru.md','GUIDE.md']) await cp(entry, `dist/module/${entry}`, {recursive:true});
 await rm('dist/module/scripts/build-release.mjs', {force:true});
 await writeFile('dist/module/module.json', JSON.stringify(manifest,null,2)+'\n');
 await writeFile('dist/module.json', JSON.stringify(manifest,null,2)+'\n');

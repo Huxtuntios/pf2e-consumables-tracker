@@ -7,7 +7,7 @@ class Collection extends Map { filter(fn) { return [...this.values()].filter(fn)
 const hooks = {};
 globalThis.Hooks = {on:(n,f)=>{(hooks[n]??=[]).push(f)}, once:()=>{}};
 globalThis.ui={notifications:{warn:()=>{},info:()=>{},error:()=>{}}};
-globalThis.CONST={TOKEN_DISPOSITIONS:{HOSTILE:-1}};
+globalThis.CONST={TOKEN_DISPOSITIONS:{HOSTILE:-1,FRIENDLY:1,NEUTRAL:0}};
 globalThis.CONFIG={PF2E:{},SF2E:{}};
 globalThis.document={createElement:()=>({addEventListener(_n,cb){this.click=cb;},disabled:false})};
 let dialogResult='take';
@@ -15,8 +15,8 @@ globalThis.foundry={applications:{api:{ApplicationV2:class {render(){}}, Handleb
 const users=new Collection(), actors=new Collection(), messages=new Collection();
 const gm={id:'gm',name:'GM',isGM:true,active:true}, alice={id:'alice',name:'Alice',active:true}, bob={id:'bob',name:'Bob',active:true};
 for(const u of [gm,alice,bob]) users.set(u.id,u); users.activeGM=gm;
-const values={ignoreContainerItems:false,restrictPlayerView:false,blacklist:[],lastFilters:{}};
-globalThis.game={user:alice,users,actors,messages,system:{id:'pf2e'},i18n:{localize:k=>k,has:()=>false,format:(k,v)=>`${k} ${JSON.stringify(v)}`},settings:{get:(_m,k)=>values[k],set:()=>{}}};
+const values={ignoreContainerItems:false,restrictPlayerView:false,shareCombatAllies:false,blacklist:[],lastFilters:{}};
+globalThis.game={user:alice,users,actors,messages,combats:{active:null},system:{id:'pf2e'},i18n:{localize:k=>k,has:()=>false,format:(k,v)=>`${k} ${JSON.stringify(v)}`},settings:{get:(_m,k)=>values[k],set:()=>{}}};
 function actor(id, owner) { const a={id, uuid:`Actor.${id}`,name:id,type:'character',hasPlayerOwner:true,items:new Collection(),testUserPermission(u,p){return p==='OBSERVER'||u.id===owner||u.isGM}, get isOwner(){return game.user.id===owner||game.user.isGM}}; return a; }
 const source=actor('source','bob'), target=actor('target','alice'); actors.set(source.id,source); actors.set(target.id,target); alice.character=target;
 const item={id:'item',uuid:'Actor.source.Item.item',name:'Potion <test>',type:'consumable',system:{quantity:2,category:'potion',level:{value:1},traits:{value:[]}},parent:source};source.items.set(item.id,item);
@@ -47,8 +47,18 @@ test('system error locks request rather than retrying',async()=>{
 test('filters and categories; safe special grouping keys',()=>{
  game.user=alice;const rows=Data.getActorConsumables(source,{blacklist:[],ignoreContainerItems:false});assert.equal(rows.length,1);assert.equal(rows[0].canRequest,true);assert.equal(Data.getActorConsumables(source,{blacklist:['potion <test>'],ignoreContainerItems:false}).length,0);assert.equal(Data.groupConsumables([{category:'__proto__'}],'category')['__proto__'].length,1);
 });
-test('GM sees hostile scene NPC only with toggle; player cannot see it',async()=>{
- const npc={...actor('npc','nobody'),type:'npc',uuid:'Scene.test.Token.one.Actor.npc'};npc.items=new Collection([['n',{...item,id:'n',uuid:'Scene.test.Token.one.Actor.npc.Item.n',parent:npc}]]);canvas.tokens.placeables=[{actor:npc,document:{disposition:-1}},{actor:npc,document:{disposition:-1}}];game.user=gm;let app=new App();let ctx=await app._prepareContext({});assert.equal(ctx.totalCount,2);app.filters.showEnemies=true;ctx=await app._prepareContext({});assert.equal(ctx.totalCount,3);game.user=alice;ctx=await app._prepareContext({});assert.equal(ctx.totalCount,2);
+test('GM sees only hostile NPC combatants with toggle; never arbitrary scene tokens',async()=>{
+ const npc={...actor('npc','nobody'),type:'npc',uuid:'Scene.test.Token.one.Actor.npc'};
+ npc.items=new Collection([['n',{...item,id:'n',uuid:'Scene.test.Token.one.Actor.npc.Item.n',parent:npc}]]);
+ const token={name:'Enemy',disposition:-1,actor:npc};
+ canvas.tokens.placeables=[{actor:npc,document:token}];
+ game.combats.active={id:'battle',active:true,combatants:[]};game.user=gm;
+ let app=new App();let ctx=await app._prepareContext({});assert.equal(ctx.totalCount,2);
+ app.filters.showEnemies=true;ctx=await app._prepareContext({});assert.equal(ctx.totalCount,2,'outside combat');
+ game.combats.active.combatants=[{actor:npc,token},{actor:npc,token}];
+ ctx=await app._prepareContext({});assert.equal(ctx.totalCount,3,'deduplicated');
+ game.user=alice;ctx=await app._prepareContext({});assert.equal(ctx.totalCount,2,'no enemies for players');
+ game.combats.active=null;
 });
 test('manifest assets exist and localization keys match',async()=>{
  const manifest=JSON.parse(await readFile('module.json'));assert.equal(manifest.id,'pf2e-consumables-tracker');for(const f of [...manifest.esmodules,...manifest.styles,...manifest.languages.map(l=>l.path)]) await readFile(f);
@@ -109,4 +119,61 @@ test('settings changed during confirmation do not bypass Toolbelt',async()=>{
  game.user=alice;const old=foundry.applications.api.DialogV2.confirm;foundry.applications.api.DialogV2.confirm=async()=>{enabled=true;return true};const prior=consumed;
  await click(action(msg));assert.equal(opened,1);assert.equal(consumed,prior);
  foundry.applications.api.DialogV2.confirm=old;game.modules.clear();delete game.toolbelt;
+});
+
+test('combat NPC selection excludes scene-only, wrong disposition, neutral, hidden and duplicates',async()=>{
+ const {getCombatNPCs}=await import('../scripts/combat-consumables.mjs');
+ const a={...actor('friend','nobody'),type:'npc'}, b={...actor('hidden','nobody'),type:'npc'}, c={...actor('hostile','nobody'),type:'npc'}, d={...actor('neutral','nobody'),type:'npc'};
+ const ct=(actor,disposition,hidden=false)=>({actor,hidden,token:{name:actor.name,disposition,hidden:false}});
+ const combat={active:true,combatants:[ct(a,1),ct(a,1),ct(b,1,true),ct(c,-1),ct(d,0),ct(target,1)]};
+ assert.deepEqual(getCombatNPCs(combat,1,{excludeHidden:true}).map(x=>x.actor.id),['friend']);
+ assert.deepEqual(getCombatNPCs(combat,-1).map(x=>x.actor.id),['hostile']);
+ combat.active=false;assert.equal(getCombatNPCs(combat,1).length,0);
+});
+test('GM shares only visible identified allied combatant data with opt-in and filters',async()=>{
+ const {buildSharedCombatAllies}=await import('../scripts/combat-consumables.mjs');
+ const a={...actor('ally','nobody'),type:'npc',uuid:'Actor.ally',items:new Collection()};
+ const potion={...item,id:'known',name:'Ally potion',parent:a,isIdentified:true,system:{...item.system,quantity:2}};
+ const unidentified={...potion,id:'secret',name:'Secret',isIdentified:false};
+ const container={...potion,id:'bagged',name:'Bagged',system:{...potion.system,containerId:'bag'}};
+ a.items.set('known',potion);a.items.set('secret',unidentified);a.items.set('bagged',container);
+ const token={name:'Ally token',disposition:1,hidden:false,actor:a};
+ game.combats.active={id:'battle',active:true,combatants:[{actor:a,token}]};game.user=gm;
+ values.ignoreContainerItems=true;values.shareCombatAllies=false;assert.deepEqual(buildSharedCombatAllies({combatId:'battle'}),[]);
+ values.shareCombatAllies=true;let items=buildSharedCombatAllies({combatId:'battle'});assert.equal(items.length,1);assert.equal(items[0].name,'Ally potion');assert.equal(items[0].actorName,'Ally token');assert.equal(items[0].canRequest,false);assert.equal(items[0].canOpen,false);assert.equal('uuid' in items[0],false);
+ values.blacklist=['ally potion'];assert.equal(buildSharedCombatAllies({combatId:'battle'}).length,0);values.blacklist=[];
+ token.hidden=true;assert.equal(buildSharedCombatAllies({combatId:'battle'}).length,0);token.hidden=false;
+ game.combats.active.combatants[0].hidden=true;assert.equal(buildSharedCombatAllies({combatId:'battle'}).length,0);game.combats.active.combatants[0].hidden=false;
+ assert.equal(buildSharedCombatAllies({combatId:'other'}).length,0);game.user=alice;assert.equal(buildSharedCombatAllies({combatId:'battle'}).length,0);
+ values.ignoreContainerItems=false;values.shareCombatAllies=false;game.combats.active=null;
+});
+test('player views opted-in GM data without NPC document access and setting disables it',async()=>{
+ const {buildSharedCombatAllies}=await import('../scripts/combat-consumables.mjs');
+ const a={...actor('ally2','nobody'),type:'npc',uuid:'Actor.ally2',items:new Collection(),testUserPermission:()=>false};
+ a.items.set('known',{...item,id:'known',name:'Elixir',parent:a,isIdentified:true});
+ const token={name:'Ally',disposition:1,hidden:false,actor:a};game.combats.active={id:'battle',active:true,combatants:[{actor:a,token}]};values.shareCombatAllies=true;
+ gm.query=async (_query,data)=>{const old=game.user;game.user=gm;const answer=buildSharedCombatAllies(data);game.user=old;return answer};
+ game.user=alice;const app=new App();let context=await app._prepareContext({});assert.equal(context.totalCount,3);assert.equal(context.groups.flatMap(g=>g.items).find(i=>i.name==='Elixir').canOpen,false);
+ values.shareCombatAllies=false;context=await app._prepareContext({});assert.equal(context.totalCount,2);
+ delete gm.query;game.combats.active=null;
+});
+test('missing GM or permission is reported; stale reply discarded',async()=>{
+ const {querySharedCombatAllies}=await import('../scripts/combat-consumables.mjs');game.user=alice;values.shareCombatAllies=true;game.combats.active={id:'old',active:true};
+ users.activeGM=null;assert.equal((await querySharedCombatAllies()).error,true);users.activeGM=gm;
+ gm.query=async()=>{game.combats.active={id:'new',active:true};return [{name:'stale'}]};assert.deepEqual((await querySharedCombatAllies()).items,[]);
+ gm.query=async()=>{values.shareCombatAllies=false;return [{name:'stale'}]};assert.deepEqual((await querySharedCombatAllies()).items,[]);
+ delete gm.query;game.combats.active=null;values.shareCombatAllies=false;
+});
+
+test('independent unlinked combat NPCs are distinct; disabling invalidates an in-flight reply',async()=>{
+ const {getCombatNPCs}=await import('../scripts/combat-consumables.mjs');
+ const one={...actor('npc','none'),type:'npc',uuid:'Scene.s.Token.one.Actor.a'};
+ const two={...one,uuid:'Scene.s.Token.two.Actor.a'};
+ const combat={id:'battle',active:true,combatants:[{actor:one,token:{disposition:-1}},{actor:two,token:{disposition:-1}}]};
+ assert.equal(getCombatNPCs(combat,-1).length,2);
+ game.combats.active=combat;values.shareCombatAllies=true;game.user=alice;
+ let respond;gm.query=()=>new Promise(r=>respond=r);const app=new App();const pending=app._prepareContext({});
+ values.shareCombatAllies=false;respond([{name:'should not show',actorName:'Ally',traits:[],category:'potion'}]);
+ const ctx=await pending;assert.equal(ctx.totalCount,2);
+ delete gm.query;game.combats.active=null;
 });

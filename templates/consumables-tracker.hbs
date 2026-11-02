@@ -90,6 +90,7 @@
   </div>
 </div>
 
+{{#if shareError}}<p class="pct-share-warning">{{localize "pf2e-consumables-tracker.ShareUnavailable"}}</p>{{/if}}
 <div class="pct-body">
   {{#if hasResults}}
     {{#each groups}}
@@ -104,10 +105,10 @@
         <ul class="pct-item-list">
           {{#each this.items}}
             <li class="pct-item-row">
-              <img class="pct-item-img" data-action="openItem" data-uuid="{{this.uuid}}" src="{{this.img}}" alt="{{this.name}}" />
+              {{#if this.canOpen}}<img class="pct-item-img" data-action="openItem" data-uuid="{{this.uuid}}" src="{{this.img}}" alt="{{this.name}}" />{{else}}<img class="pct-item-img" src="{{this.img}}" alt="{{this.name}}" />{{/if}}
               <div class="pct-item-main">
                 <div class="pct-item-name-line">
-                  <a class="pct-item-name" data-action="openItem" data-uuid="{{this.uuid}}" title="{{this.name}}">{{this.name}}</a>
+                  {{#if this.canOpen}}<a class="pct-item-name" data-action="openItem" data-uuid="{{this.uuid}}" title="{{this.name}}">{{this.name}}</a>{{else}}<span class="pct-item-name" title="{{this.name}}">{{this.name}}</span>{{/if}}
                   {{#unless (pctEq this.quantity 1)}}
                     <span class="pct-item-quantity">&times;{{this.quantity}}</span>
                   {{/unless}}

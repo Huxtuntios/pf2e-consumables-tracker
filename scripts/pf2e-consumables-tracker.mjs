@@ -2,9 +2,11 @@ import { MODULE_ID } from "./constants.mjs";
 import { ConsumablesTrackerApp } from "./apps/consumables-tracker-app.mjs";
 import { BlacklistConfigApp } from "./apps/blacklist-config-app.mjs";
 import { registerRequestHooks } from "./requests.mjs";
+import { registerCombatQuery } from "./combat-consumables.mjs";
 
 Hooks.once("init", () => {
   registerRequestHooks();
+  registerCombatQuery();
   Handlebars.registerHelper("pctEq", (a, b) => a === b);
   // Register settings during init.
 
@@ -25,6 +27,13 @@ Hooks.once("init", () => {
     config: true,
     type: Boolean,
     default: false,
+    onChange: () => ConsumablesTrackerApp.refreshOpenInstance()
+  });
+
+  game.settings.register(MODULE_ID, "shareCombatAllies", {
+    name: `${MODULE_ID}.Settings.ShareCombatAllies.Name`,
+    hint: `${MODULE_ID}.Settings.ShareCombatAllies.Hint`,
+    scope: "world", config: true, type: Boolean, default: false,
     onChange: () => ConsumablesTrackerApp.refreshOpenInstance()
   });
 
@@ -145,6 +154,6 @@ Hooks.on("createActor", refreshIfCharacterActor);
 Hooks.on("updateActor", refreshIfCharacterActor);
 Hooks.on("deleteActor", refreshIfCharacterActor);
 
-for (const hook of ["createToken", "updateToken", "deleteToken", "canvasReady"]) {
+for (const hook of ["createToken", "updateToken", "deleteToken", "canvasReady", "createCombat", "updateCombat", "deleteCombat", "createCombatant", "updateCombatant", "deleteCombatant"]) {
   Hooks.on(hook, () => ConsumablesTrackerApp.refreshOpenInstance());
 }

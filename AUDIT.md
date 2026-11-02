@@ -1,3 +1,10 @@
+# Combatant views — 1.1.3
+
+- GM enemy toggle now selects hostile NPC token combatants of the active encounter, not all NPC tokens on a scene. Linked actors are deduplicated; unlinked token actors remain distinct.
+- The GM world setting for friendly NPC consumables defaults off. A targeted Foundry User.query asks the active GM only for the active combat. The response is read-only display data for identified, filtered consumables of visible friendly NPC combatants; no item or actor UUIDs are sent, and hidden tokens or combatants are excluded. Opting in deliberately reveals token names and item details even without NPC sheet access.
+- No query is used to transfer or consume items. Shared rows cannot open item sheets or request NPC items. Queries require an active GM and Foundry QUERY_USER permission. Change hooks and a ten-second refresh invalidate the player cache; information already received cannot be revoked. Combatants count before the first round and while defeated until removed.
+- Automated tests use mock Foundry/PF2e/SF2e data; actual multiple-client query behavior, visibility, timing, permissions and real systems require a live-world test.
+
 # Toolbelt compatibility audit — 1.1.1
 
 - Inspected PF2e Toolbelt 3.59.2, commit `8109338b90cbe270d30a439952330d1e448950a3`, and its pinned `foundry-helpers` commit `8697ee87188e65786f9b071f56f895b9c9523b60`.

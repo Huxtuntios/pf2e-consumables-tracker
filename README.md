@@ -4,6 +4,8 @@
 
 Foundry VTT module for Pathfinder 2e and Starfinder 2e. Browse party consumables, search, group and sort them; request a single consumable from another player. English and Russian interfaces are included.
 
+### https://github.com/Huxtuntios/pf2e-consumables-tracker/releases/latest/download/module.json
+
 ## Install and open
 
 Copy this folder as `Data/modules/pf2e-consumables-tracker/` and enable it in the world. Open using the flask tool under **Token Controls**, configure the **Open Consumables Tracker** keybinding, or run a script macro:

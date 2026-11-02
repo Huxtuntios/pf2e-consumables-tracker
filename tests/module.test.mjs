@@ -310,3 +310,52 @@ test('forged denial does not prevent a legitimate approval',async()=>{
  await ChatMessage.create({content:'fake',flags:{'pf2e-consumables-tracker':{request:{kind:'decline',requestId:req.id,snapshot}}}});
  game.user=bob;assert.match(statusText(req),/StatusPending/);await click(action(req));assert.match(statusText(req),/StatusApproved/);
 });
+
+test('system use posts the item card; enemy and unidentified uses are GM-only',async()=>{
+ const {useConsumable,registerUseHooks}=await import('../scripts/use-consumable.mjs');registerUseHooks();
+ const oldCreate=ChatMessage.create;const created=[];
+ const pre=hooks.preCreateChatMessage.at(-1);
+ ChatMessage.create=async data=>{const m={...data,updateSource(u){Object.assign(this,u)}};pre(m);created.push(m);return m};
+ ChatMessage.getSpeaker=({actor})=>({actor:actor?.id});
+ values.confirmUse=false;
+ try{
+  game.user=alice;let {it,log}=usable('alice');await useConsumable(it);
+  assert.equal(log.consume,1);assert.equal(created.length,1);assert.match(created[0].content,/card/);assert.equal(created[0].whisper,undefined,'public card for own identified item');
+  created.length=0;({it,log}=usable('alice',{isIdentified:false,consume:async function(){await ChatMessage.create({speaker:{actor:this.parent.id},content:'uses'});log.consume++}}));
+  await useConsumable(it);assert.equal(created.length,2);for(const m of created) assert.deepEqual(m.whisper,['gm'],'unidentified card and system notice whispered');
+  created.length=0;game.user=gm;({it,log}=usable('nobody'));const npc=it.parent;npc.type='npc';npc.hasPlayerOwner=false;npc.prototypeToken={disposition:-1};
+  await useConsumable(it);assert.equal(log.consume,1);assert.deepEqual(created[0].whisper,['gm'],'enemy card is GM-only');
+  created.length=0;npc.prototypeToken={disposition:1};it.system.uses.value=1;await useConsumable(it);assert.equal(created[0].whisper,undefined,'allied card is public');
+  created.length=0;await ChatMessage.create({speaker:{actor:npc.id},content:'later'});assert.equal(created[0].whisper,undefined,'context ends after use');
+  values.postUseCard=false;created.length=0;await useConsumable(it);assert.equal(created.length,0,'card can be disabled');delete values.postUseCard;
+ } finally {ChatMessage.create=oldCreate;delete ChatMessage.getSpeaker;values.confirmUse=true;purgeUsable();game.user=alice;}
+});
+
+test('GM reveals chosen NPC consumables; players get only display data',async()=>{
+ const {buildSharedCombatAllies,querySharedCombatAllies}=await import('../scripts/combat-consumables.mjs');
+ const flags={};
+ const e={...actor('enemyR','nobody'),type:'npc',hasPlayerOwner:false,uuid:'Actor.enemyR',items:new Collection(),testUserPermission:()=>false};
+ const secret={...item,id:'secret',uuid:'Actor.enemyR.Item.secret',name:'Unknown Vial',isIdentified:false,parent:e,system:{...item.system,identification:{identified:{name:'Bomb'}}},
+  getFlag:(_m,k)=>flags[k],setFlag:async(_m,k,v)=>{flags[k]=v},unsetFlag:async(_m,k)=>{delete flags[k]}};
+ const plain={...item,id:'plain',uuid:'Actor.enemyR.Item.plain',name:'Enemy potion',isIdentified:true,parent:e};
+ e.items.set(secret.id,secret);e.items.set(plain.id,plain);
+ const token={name:'Goblin',disposition:-1,hidden:false,actor:e};
+ game.combats.active={id:'battle',active:true,combatants:[{actor:e,token}]};values.shareCombatAllies=false;
+ game.user=gm;assert.deepEqual(buildSharedCombatAllies({combatId:'battle'}),[]);
+ const app=new App();app.filters.showEnemies=true;let ctx=await app._prepareContext({});
+ const row=ctx.groups.flatMap(g=>g.items).find(i=>i.id==='secret');assert.equal(row.canReveal,true);assert.equal(row.revealed,false);assert.equal(row.name,'Bomb');
+ const button={dataset:{uuid:secret.uuid},disabled:false,isConnected:true};
+ await App.DEFAULT_OPTIONS.actions.toggleReveal.call(app,{preventDefault(){},stopPropagation(){}},button);assert.equal(flags.revealed,true);
+ let shared=buildSharedCombatAllies({combatId:'battle'});assert.equal(shared.length,1);
+ assert.equal(shared[0].name,'Unknown Vial','mystified name for players');assert.equal(shared[0].side,'enemy');assert.equal('uuid' in shared[0],false);assert.equal(shared[0].canUse,false);
+ token.hidden=true;assert.equal(buildSharedCombatAllies({combatId:'battle'}).length,0,'hidden combatants never shared');token.hidden=false;
+ gm.query=async (_q,data)=>{const old=game.user;game.user=gm;const answer=buildSharedCombatAllies(data);game.user=old;return answer};
+ game.user=alice;const papp=new App();ctx=await papp._prepareContext({});const seen=ctx.groups.flatMap(g=>g.items).find(i=>i.name==='Unknown Vial');
+ assert.ok(seen);assert.equal(seen.revealed,true);assert.equal(seen.side,'enemy');assert.equal(seen.canOpen,false);assert.equal(seen.canReveal,false);assert.equal(ctx.shareError,false);
+ assert.equal(ctx.groups.flatMap(g=>g.items).some(i=>i.name==='Enemy potion'),false,'unrevealed items stay hidden');
+ await App.DEFAULT_OPTIONS.actions.toggleReveal.call(papp,{preventDefault(){},stopPropagation(){}},button);assert.equal(flags.revealed,true,'players cannot toggle');
+ game.user=gm;await App.DEFAULT_OPTIONS.actions.toggleReveal.call(app,{preventDefault(){},stopPropagation(){}},button);assert.equal(flags.revealed,undefined);
+ assert.equal(buildSharedCombatAllies({combatId:'battle'}).length,0);
+ game.user=alice;assert.deepEqual((await querySharedCombatAllies()).items,[]);
+ delete gm.query;game.combats.active=null;
+});

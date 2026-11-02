@@ -70,7 +70,11 @@
       },
       "ShareCombatAllies": {
         "Name": "Show players allied NPC consumables in combat",
-        "Hint": "Shares token names and identified item names, quantities and other displayed details with all players even if they cannot access the NPC sheet. Only visible friendly NPC combatants in the active combat are included. Off by default; hidden tokens and combatants are excluded."
+        "Hint": "Publishes token names, identified consumables, quantities and other list data to all players without NPC sheet access. Only visible allied NPCs in the active combat. Off by default; hidden tokens and combatants are excluded. Items the GM reveals with the eye button are shown regardless of this setting."
+      },
+      "PostUseCard": {
+        "Name": "Post item card on use",
+        "Hint": "When a consumable is used from the tracker or a delivery message, its item card is posted to chat. Cards and use messages of enemy NPCs and unidentified items are whispered to GMs only."
       },
       "ConfirmUse": {
         "Name": "Confirm before using a consumable",
@@ -140,7 +144,7 @@
     "QuickSide": "Side",
     "All": "All",
     "Compact": "Compact view",
-    "CombatHint": "Allies and enemies are NPCs in the active encounter only.",
+    "CombatHint": "Allies and enemies are NPCs in the active encounter only. Use the eye button to show chosen NPC consumables to players.",
     "Charges": "Charges",
     "InContainer": "In container",
     "Unidentified": "Unidentified",
@@ -157,6 +161,15 @@
     "StatusDone": "Transferred",
     "StatusFailed": "Check both inventories",
     "StatusUnknown": "Status unavailable",
-    "StatusLabel": "Status: {status}"
+    "StatusLabel": "Status: {status}",
+    "Reveal": "Reveal",
+    "Hide": "Hide",
+    "Revealed": "Shown to players",
+    "RevealedHint": "The GM shows this NPC consumable in the players' tracker.",
+    "RevealToPlayers": "Show this item in the players' tracker",
+    "HideFromPlayers": "Hide this item from players again",
+    "RevealedNotice": "{item} is now visible to players.",
+    "HiddenNotice": "{item} is hidden from players again.",
+    "RevealError": "Could not change the item visibility. See the console for details."
   }
 }

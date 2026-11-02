@@ -65,16 +65,89 @@ export async function getUseRoute(item) {
   return toolbeltSetting("use") ? "toolbelt" : "system";
 }
 
-/** Port of Toolbelt's `consumeItem`: chat card without consume controls, then spend one use. */
-export async function toolbeltConsume(event, item) {
+/* -------------------------------------------- */
+/*  Chat visibility                              */
+/* -------------------------------------------- */
+
+/** Actors whose use flow is currently running privately on this client. */
+const privateUses = new Map();
+
+function gmIds() {
+  return game.users.filter(user => user.isGM).map(user => user.id);
+}
+
+/** Hostile NPCs (by token disposition) are enemies; player characters never are. */
+export function isEnemyActor(actor) {
+  if (!actor || (actor.type === "character" && actor.hasPlayerOwner)) return false;
+  const token = actor.token ?? actor.getActiveTokens?.(false, true)?.[0] ?? null;
+  const disposition = token?.disposition ?? actor.prototypeToken?.disposition;
+  return disposition === CONST.TOKEN_DISPOSITIONS.HOSTILE;
+}
+
+/** Enemy consumables and unidentified items are announced to GMs only. */
+export function isPrivateUse(item) {
+  const actor = item?.actor ?? item?.parent;
+  return item?.isIdentified === false || isEnemyActor(actor);
+}
+
+function matchesPrivateUse(message) {
+  if (!privateUses.size) return false;
+  const speaker = message?.speaker ?? {};
+  const origin = message?.flags?.[game.system.id]?.origin?.uuid ?? message?.getFlag?.(game.system.id, "origin")?.uuid ?? "";
+  for (const {actorId, actorUuid} of privateUses.values()) {
+    if (origin && origin.startsWith(`${actorUuid}.`)) return true;
+    if (speaker.actor && speaker.actor === actorId) return true;
+  }
+  return false;
+}
+
+/** Whisper every chat message created by a private use (card, system notice, damage, spell). */
+export function registerUseHooks() {
+  Hooks.on("preCreateChatMessage", message => {
+    if (!matchesPrivateUse(message)) return;
+    const whisper = gmIds();
+    if (typeof message.updateSource === "function") message.updateSource({whisper});
+    else message.whisper = whisper;
+  });
+}
+
+async function withVisibility(item, fn) {
+  if (!isPrivateUse(item)) return fn();
   const actor = item.actor ?? item.parent;
-  const speaker = ChatMessage.getSpeaker({actor});
-  const flags = {[game.system.id]: {origin: {sourceId: item.sourceId, uuid: item.uuid, type: item.type}}};
+  const key = Symbol("private-use");
+  privateUses.set(key, {actorId: actor?.id, actorUuid: actor?.uuid});
+  try { return await fn(); }
+  finally { privateUses.delete(key); }
+}
+
+/** The system item card without its own consume controls, so it cannot be spent twice. */
+async function cardContent(event, item) {
   const wrapper = document.createElement("div");
   wrapper.innerHTML = (await item.toMessage?.(event, {create: false}))?.content ?? "";
   wrapper.querySelector?.("footer")?.remove();
   wrapper.querySelector?.("button[data-action='consume']")?.remove();
-  const content = wrapper.outerHTML ?? "";
+  return wrapper.outerHTML ?? "";
+}
+
+function originFlags(item) {
+  return {[game.system.id]: {origin: {sourceId: item.sourceId, uuid: item.uuid, type: item.type}}};
+}
+
+/** Post the used item's card; whispered to GMs for enemies and unidentified items. */
+export async function postUseCard(event, item) {
+  if (typeof item?.toMessage !== "function") return null;
+  const actor = item.actor ?? item.parent;
+  const data = {speaker: ChatMessage.getSpeaker?.({actor}) ?? {}, content: await cardContent(event, item), flags: originFlags(item)};
+  if (isPrivateUse(item)) data.whisper = gmIds();
+  return ChatMessage.create(data);
+}
+
+/** Port of Toolbelt's `consumeItem`: chat card without consume controls, then spend one use. */
+export async function toolbeltConsume(event, item) {
+  const actor = item.actor ?? item.parent;
+  const speaker = ChatMessage.getSpeaker({actor});
+  const flags = originFlags(item);
+  const content = await cardContent(event, item);
   const uses = getUses(item) ?? {value: 1, max: 1};
   const damage = item.system?.damage;
   const DamageRoll = damage ? CONFIG.Dice?.rolls?.find(Roll => Roll.name === "DamageRoll") : null;
@@ -118,9 +191,19 @@ export async function useConsumable(item, {event, confirm = true} = {}) {
   if (!owner?.isOwner || !isUsableType(current)) { ui.notifications.warn(L("UseUnavailable")); return false; }
   if (isEmpty(current)) { ui.notifications.warn(L("UseEmpty")); return false; }
 
+  return withVisibility(current, () => runUse(event, current, owner));
+}
+
+async function runUse(event, current, owner) {
+  // Scrolls and wands post the system spell card.
   if (isCastConsumable(current)) { await current.consume(); return true; }
   const macro = await toolbeltMacro(current);
-  const use = (macro || toolbeltSetting("use")) ? () => toolbeltConsume(event, current) : () => current.consume();
+  const systemUse = async () => {
+    // Post before consuming: the last item may be deleted by the system.
+    if (game.settings.get(MODULE_ID, "postUseCard") !== false) await postUseCard(event, current);
+    await current.consume();
+  };
+  const use = (macro || toolbeltSetting("use")) ? () => toolbeltConsume(event, current) : systemUse;
   if (macro) {
     await macro.execute({
       actor: owner, item: current, use,

@@ -131,6 +131,7 @@
                   <span class="pct-side-badge pct-side-{{this.side}}" title="{{this.sideLabel}}"><i class="{{this.sideIcon}}"></i> {{this.sideLabel}}</span>
                   <span class="pct-item-owner">{{this.actorName}}</span>
                   {{#if this.charges}}<span class="pct-charges">{{localize "pf2e-consumables-tracker.Charges"}}: {{this.charges.value}}/{{this.charges.max}}</span>{{/if}}
+                  {{#if this.revealed}}<span class="pct-revealed" title="{{localize 'pf2e-consumables-tracker.RevealedHint'}}"><i class="fa-solid fa-eye"></i> {{localize "pf2e-consumables-tracker.Revealed"}}</span>{{/if}}
                   {{#if this.inContainer}}<span class="pct-container" title="{{localize 'pf2e-consumables-tracker.InContainer'}}{{#if this.containerName}}: {{this.containerName}}{{/if}}"><i class="fa-solid fa-box"></i> {{#if this.containerName}}{{this.containerName}}{{else}}{{localize "pf2e-consumables-tracker.InContainer"}}{{/if}}</span>{{/if}}
                 </div>
                 {{#if this.traits.length}}
@@ -142,6 +143,7 @@
                 {{/if}}
               </div>
               {{#if this.canUse}}<button type="button" class="pct-use-btn" data-action="useItem" data-uuid="{{this.uuid}}" title="{{#if this.useDisabled}}{{localize 'pf2e-consumables-tracker.UseEmpty'}}{{else}}{{this.useTitle}}{{/if}}" {{#if this.useDisabled}}disabled{{/if}}><i class="fa-solid fa-play"></i> {{localize "pf2e-consumables-tracker.Use"}}</button>{{/if}}
+              {{#if this.canReveal}}<button type="button" class="pct-reveal-btn {{#if this.revealed}}pct-reveal-active{{/if}}" data-action="toggleReveal" data-uuid="{{this.uuid}}" aria-pressed="{{#if this.revealed}}true{{else}}false{{/if}}" title="{{#if this.revealed}}{{localize 'pf2e-consumables-tracker.HideFromPlayers'}}{{else}}{{localize 'pf2e-consumables-tracker.RevealToPlayers'}}{{/if}}"><i class="fa-solid {{#if this.revealed}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>{{#unless ../../filters.compact}} {{#if this.revealed}}{{localize "pf2e-consumables-tracker.Hide"}}{{else}}{{localize "pf2e-consumables-tracker.Reveal"}}{{/if}}{{/unless}}</button>{{/if}}
               {{#if this.canRequest}}<button type="button" class="pct-request-btn" data-action="requestItem" data-uuid="{{this.uuid}}" title="{{localize 'pf2e-consumables-tracker.Request'}}"><i class="fa-solid fa-hand"></i> {{localize "pf2e-consumables-tracker.Request"}}</button>{{/if}}
             </li>
           {{/each}}

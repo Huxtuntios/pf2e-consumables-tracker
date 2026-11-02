@@ -3,11 +3,12 @@ import { ConsumablesTrackerApp } from "./apps/consumables-tracker-app.mjs";
 import { BlacklistConfigApp } from "./apps/blacklist-config-app.mjs";
 import { registerRequestHooks } from "./requests.mjs";
 import { registerCombatQuery } from "./combat-consumables.mjs";
-import { useConsumable } from "./use-consumable.mjs";
+import { useConsumable, registerUseHooks } from "./use-consumable.mjs";
 
 Hooks.once("init", () => {
   registerRequestHooks();
   registerCombatQuery();
+  registerUseHooks();
   Handlebars.registerHelper("pctEq", (a, b) => a === b);
   // Register settings during init.
 
@@ -36,6 +37,12 @@ Hooks.once("init", () => {
     hint: `${MODULE_ID}.Settings.ShareCombatAllies.Hint`,
     scope: "world", config: true, type: Boolean, default: false,
     onChange: () => ConsumablesTrackerApp.refreshOpenInstance()
+  });
+
+  game.settings.register(MODULE_ID, "postUseCard", {
+    name: `${MODULE_ID}.Settings.PostUseCard.Name`,
+    hint: `${MODULE_ID}.Settings.PostUseCard.Hint`,
+    scope: "world", config: true, type: Boolean, default: true
   });
 
   game.settings.register(MODULE_ID, "confirmUse", {

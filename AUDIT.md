@@ -1,9 +1,8 @@
-# Current audit — 1.1.6
+# Current audit — 1.1.7
 
-- GM rows use the system’s identified name/image and mark unidentified status; player rows retain the system-prepared name and image. Item-sheet actions first resolve the actual actor’s embedded item, including synthetic combatant actors. Requires live Foundry testing.
-- Multi-use charges and container names are displayed. New worlds show container contents by default; existing saved world settings are not overwritten. GM-shared allies remain opt-in and identified-only; the display fields include charges and container name.
-- Client filters, combat toggles, compact view and collapsed groups are saved. Search resets after closing. Quick filters apply to already visible data and do not grant permissions.
-- Request owners can approve or decline using separate whisper messages. Status is derived from request state plus the first valid owner decision; the active GM remains responsible for transferring. No promise of atomicity under competing decisions or failure. Deleted chat messages can make status unavailable.
-- `use-consumable.mjs` mirrors Toolbelt 3.59.2 / foundry-helpers 8697ee8. This internal logic can diverge in later Toolbelt releases. Mocks are not proof of live interoperability.
-- Transfer is not atomic: on error or interruption inspect both inventories manually before retrying. No distance or action checks. Existing old module-ID settings are not migrated automatically.
-- Actual multi-client, synthetic token item sheets, PF2e/SF2e and Toolbelt behavior for this release must be verified in a real world. Manifest compatibility is unchanged per the author's prior testing.
+- Use flows (tracker and delivery “Use”) post the item card before the system `consume()`, with the card's own consume controls removed. Toolbelt routes keep Toolbelt's card; scroll/wand casts keep the system spell card. World setting `postUseCard`, default on.
+- Enemy (hostile-disposition, non-player-character) actors and unidentified items: while that use runs, every chat message from the same actor or with an origin under that actor is whispered to GMs via `preCreateChatMessage` on the using client. The author still sees their own whisper (Foundry rule). Uses started from character sheets or other modules are not changed.
+- GM reveal: an `revealed` item flag set only from the GM tracker on NPC items. The active GM's query returns display data for revealed items of visible combatants of the active combat (any disposition) plus, when opted in, identified allied items. Unidentified revealed items use the system-prepared mystified name/image. Players never get UUIDs or actions; side markers are re-localized and actions forced off on the player client.
+- GM rows use the system’s identified name/image and mark unidentified status. Item-sheet actions resolve the actual embedded item, including synthetic combatant actors.
+- Requests, approvals and transfers are unchanged from 1.1.6: not atomic; on error inspect both inventories manually.
+- `use-consumable.mjs` mirrors Toolbelt 3.59.2 / foundry-helpers 8697ee8 and may diverge in later Toolbelt releases. Mocks are not proof of live interoperability; multi-client chat visibility, PF2e/SF2e item cards and Toolbelt must be verified in a real world.

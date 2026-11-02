@@ -9,7 +9,7 @@ import {
   getSideLabel,
   sideFields
 } from "../data/consumables-data.mjs";
-import { getCombatNPCs, querySharedCombatAllies } from "../combat-consumables.mjs";
+import { getCombatNPCs, querySharedCombatAllies, isRevealed } from "../combat-consumables.mjs";
 import { createRequest } from "../requests.mjs";
 import { useConsumable, getUseRoute } from "../use-consumable.mjs";
 import { BlacklistConfigApp } from "./blacklist-config-app.mjs";
@@ -50,7 +50,8 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
       toggleSortDir: ConsumablesTrackerApp.#onToggleSortDir,
       refresh: ConsumablesTrackerApp.#onRefresh,
       requestItem: ConsumablesTrackerApp.#onRequestItem,
-      useItem: ConsumablesTrackerApp.#onUseItem
+      useItem: ConsumablesTrackerApp.#onUseItem,
+      toggleReveal: ConsumablesTrackerApp.#onToggleReveal
     }
   };
 
@@ -258,19 +259,21 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
     }
     this.itemDocuments = documents;
     let shareError = false;
-    if (!isGM && game.settings.get(MODULE_ID, "shareCombatAllies")) {
+    if (!isGM && game.combats?.active?.active) {
       const combatId = game.combats?.active?.active ? game.combats.active.id : null;
       const gmId = game.users.activeGM?.id ?? null;
-      if (!this.allyCache || this.allyCache.combatId !== combatId || this.allyCache.gmId !== gmId || Date.now() - this.allyCache.time > 8000) {
+      const share = game.settings.get(MODULE_ID, "shareCombatAllies");
+      if (!this.allyCache || this.allyCache.combatId !== combatId || this.allyCache.gmId !== gmId || this.allyCache.share !== share || Date.now() - this.allyCache.time > 8000) {
         const revision = this.allyRevision;
         const result = await querySharedCombatAllies();
-        if (revision === this.allyRevision) this.allyCache = {combatId, gmId, time:Date.now(), ...result};
+        if (revision === this.allyRevision) this.allyCache = {combatId, gmId, share, time:Date.now(), ...result};
       }
-      if (this.allyCache && game.settings.get(MODULE_ID, "shareCombatAllies") && game.combats?.active?.active &&
+      if (this.allyCache && game.combats?.active?.active && this.allyCache.share === share &&
           this.allyCache.combatId === game.combats.active.id && this.allyCache.gmId === (game.users.activeGM?.id ?? null)) {
-        // Re-localize markers on this client; the GM may use another language.
-        items.push(...this.allyCache.items.map(item => ({...item, ...sideFields("ally"), canUse: false})));
-        shareError = this.allyCache.error;
+        // Re-localize markers on this client; the GM may use another language. Never trust actions.
+        items.push(...this.allyCache.items.map(item => ({...item, ...sideFields(item.side === "enemy" || item.side === "neutral" ? item.side : "ally"),
+          revealed: item.revealed === true, canOpen: false, canUse: false, canRequest: false, canReveal: false})));
+        shareError = this.allyCache.error && game.settings.get(MODULE_ID, "shareCombatAllies");
       }
     }
 
@@ -383,7 +386,7 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
     const root = this.element;
     if (!game.user.isGM && !this.allyRefreshTimer) {
       this.allyRefreshTimer = setInterval(() => {
-        if (this.rendered && game.settings.get(MODULE_ID, "shareCombatAllies")) {
+        if (this.rendered && game.combats?.active?.active) {
           this.allyCache = null;
           this.allyRevision++;
           this.render();
@@ -449,6 +452,28 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
     } catch (error) {
       console.error(`${MODULE_ID} | Use failed`, error);
       ui.notifications.error(game.i18n.localize(`${MODULE_ID}.UseError`));
+    } finally {
+      if (target.isConnected) target.disabled = false;
+    }
+  }
+
+  /** GM-only: show or hide one NPC consumable in the players' tracker. */
+  static async #onToggleReveal(event, target) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!game.user.isGM || target.disabled) return;
+    target.disabled = true;
+    try {
+      const item = await this.#resolveItem(target.dataset.uuid ?? "");
+      const actor = item?.actor ?? item?.parent;
+      if (!item || actor?.type !== "npc") return ui.notifications.warn(game.i18n.localize(`${MODULE_ID}.OpenUnavailable`));
+      const reveal = !isRevealed(item);
+      if (reveal) await item.setFlag(MODULE_ID, "revealed", true);
+      else await item.unsetFlag(MODULE_ID, "revealed");
+      ui.notifications.info(game.i18n.format(`${MODULE_ID}.${reveal ? "RevealedNotice" : "HiddenNotice"}`, {item: item.name}));
+    } catch (error) {
+      console.error(`${MODULE_ID} | Reveal failed`, error);
+      ui.notifications.error(game.i18n.localize(`${MODULE_ID}.RevealError`));
     } finally {
       if (target.isConnected) target.disabled = false;
     }

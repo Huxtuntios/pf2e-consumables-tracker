@@ -197,6 +197,8 @@ function normalizeConsumable(item, actor, {side, displayName} = {}) {
     ...sideFields(side ?? getActorSide(actor)),
     canOpen: true,
     canUse,
+    canReveal: Boolean(game.user.isGM && actor.type === "npc"),
+    revealed: (item.getFlag?.(MODULE_ID, "revealed") ?? item.flags?.[MODULE_ID]?.revealed) === true,
     empty: isEmpty(item),
     useDisabled: canUse && isEmpty(item),
     canRequest: !game.user.isGM && actor.type === "character" && !actor.isOwner && actor.hasPlayerOwner && Number(item.system?.quantity ?? 1) > 0

@@ -1,0 +1,140 @@
+<div class="pct-panel">
+<div class="pct-toolbar">
+  <div class="pct-toolbar-row">
+    <label class="pct-field">
+      <span>{{localize "pf2e-consumables-tracker.Labels.View"}}</span>
+      <select data-filter="viewMode">
+        {{#each viewModes}}
+          <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+        {{/each}}
+      </select>
+    </label>
+
+    {{#if showPlayerSelect}}
+      <label class="pct-field">
+        <span>{{localize "pf2e-consumables-tracker.Labels.Player"}}</span>
+        <select data-filter="userId">
+          {{#each playerChoices}}
+            <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+          {{/each}}
+        </select>
+      </label>
+    {{/if}}
+
+    {{#if showCharacterSelect}}
+      <label class="pct-field">
+        <span>{{localize "pf2e-consumables-tracker.Labels.Character"}}</span>
+        <select data-filter="actorId">
+          {{#each characterChoices}}
+            <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+          {{/each}}
+        </select>
+      </label>
+    {{/if}}
+
+    {{#if isGM}}
+      <label class="pct-checkbox"><input type="checkbox" data-filter="showEnemies" {{#if filters.showEnemies}}checked{{/if}} /> {{localize "pf2e-consumables-tracker.Enemies"}}</label>
+      <button type="button" class="pct-blacklist-btn" data-action="openBlacklist">
+        <i class="fa-solid fa-ban"></i> {{localize "pf2e-consumables-tracker.Settings.BlacklistMenu.Label"}}
+      </button>
+    {{/if}}
+  </div>
+
+  <div class="pct-toolbar-row">
+    <label class="pct-field">
+      <span>{{localize "pf2e-consumables-tracker.Labels.GroupBy"}}</span>
+      <select data-filter="groupBy">
+        {{#each groupByChoices}}
+          <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+        {{/each}}
+      </select>
+    </label>
+
+    <label class="pct-field">
+      <span>{{localize "pf2e-consumables-tracker.Labels.SortBy"}}</span>
+      <select data-filter="sortBy">
+        {{#each sortByChoices}}
+          <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+        {{/each}}
+      </select>
+    </label>
+
+    <button type="button" class="pct-sort-dir-btn" data-action="toggleSortDir"
+            title="{{#if (pctEq sortDir 'asc')}}{{localize 'pf2e-consumables-tracker.SortDirAsc'}}{{else}}{{localize 'pf2e-consumables-tracker.SortDirDesc'}}{{/if}}">
+      {{#if (pctEq sortDir "asc")}}
+        <i class="fa-solid fa-arrow-down-short-wide"></i>
+      {{else}}
+        <i class="fa-solid fa-arrow-up-wide-short"></i>
+      {{/if}}
+    </button>
+
+    <label class="pct-field pct-search-field">
+      <span>{{localize "pf2e-consumables-tracker.Labels.Search"}}</span>
+      <input type="text" data-filter="search" value="{{search}}"
+             placeholder="{{localize 'pf2e-consumables-tracker.SearchPlaceholder'}}" />
+    </label>
+
+    <button type="button" class="pct-refresh-btn" data-action="refresh"
+            title="{{localize 'pf2e-consumables-tracker.Refresh'}}">
+      <i class="fa-solid fa-rotate"></i>
+    </button>
+  </div>
+
+  {{#if showRecipientSelect}}
+  <label class="pct-field"><span>{{localize "pf2e-consumables-tracker.Recipient"}}</span>
+    <select data-filter="recipientId">{{#each recipientChoices}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}</select>
+  </label>
+  {{/if}}
+  <div class="pct-total-count">
+    {{totalText}}
+  </div>
+</div>
+
+<div class="pct-body">
+  {{#if hasResults}}
+    {{#each groups}}
+      <section class="pct-group">
+        {{#if ../showGroupHeaders}}
+          <h3 class="pct-group-header">
+            {{this.label}}
+            <span class="pct-group-count">{{this.count}}</span>
+          </h3>
+        {{/if}}
+
+        <ul class="pct-item-list">
+          {{#each this.items}}
+            <li class="pct-item-row">
+              <img class="pct-item-img" data-action="openItem" data-uuid="{{this.uuid}}" src="{{this.img}}" alt="{{this.name}}" />
+              <div class="pct-item-main">
+                <div class="pct-item-name-line">
+                  <a class="pct-item-name" data-action="openItem" data-uuid="{{this.uuid}}" title="{{this.name}}">{{this.name}}</a>
+                  {{#unless (pctEq this.quantity 1)}}
+                    <span class="pct-item-quantity">&times;{{this.quantity}}</span>
+                  {{/unless}}
+                </div>
+                <div class="pct-item-meta-line">
+                  <span class="pct-item-level" title="{{localize 'pf2e-consumables-tracker.Level'}}">
+                    {{localize "pf2e-consumables-tracker.Level"}} {{this.level}}
+                  </span>
+                  <span class="pct-item-rarity pct-rarity-{{this.rarity}}">{{this.rarity}}</span>
+                  <span class="pct-item-owner">{{this.actorName}}</span>
+                </div>
+                {{#if this.traits.length}}
+                  <div class="pct-item-traits">
+                    {{#each this.traits}}
+                      <span class="pct-trait-tag">{{this}}</span>
+                    {{/each}}
+                  </div>
+                {{/if}}
+              </div>
+              {{#if this.canRequest}}<button type="button" class="pct-request-btn" data-action="requestItem" data-uuid="{{this.uuid}}" title="{{localize 'pf2e-consumables-tracker.Request'}}"><i class="fa-solid fa-hand"></i> {{localize "pf2e-consumables-tracker.Request"}}</button>{{/if}}
+            </li>
+          {{/each}}
+        </ul>
+      </section>
+    {{/each}}
+  {{else}}
+    <p class="pct-empty-state">{{localize "pf2e-consumables-tracker.EmptyState"}}</p>
+  {{/if}}
+</div>
+</div>

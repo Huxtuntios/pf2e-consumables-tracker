@@ -1,0 +1,42 @@
+{
+  "id": "pf2e-consumables-tracker",
+  "title": "PF2e Consumables Tracker",
+  "description": "Track party consumables, optionally inspect hostile tokens as GM, and request transfers between players in Pathfinder 2e and Starfinder 2e.",
+  "version": "1.1.1",
+  "compatibility": {
+    "minimum": "13"
+  },
+  "relationships": {
+    "systems": [
+      {
+        "id": "pf2e",
+        "type": "system"
+      },
+      {
+        "id": "sf2e",
+        "type": "system"
+      }
+    ]
+  },
+  "esmodules": [
+    "scripts/pf2e-consumables-tracker.mjs"
+  ],
+  "styles": [
+    "styles/pf2e-consumables-tracker.css"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    },
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/ru.json"
+    }
+  ],
+  "socket": false,
+  "license": "LICENSE.txt",
+  "readme": "README.md"
+}

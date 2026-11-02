@@ -1,0 +1,317 @@
+/* ---------------------------------------------------------------------- */
+/*  Tracker panel                                                          */
+/* ---------------------------------------------------------------------- */
+
+.pf2e-consumables-tracker .window-content {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+/* The template's single root element (required by Foundry V14's PARTS renderer) - kept out
+   of the box model entirely so .pct-toolbar/.pct-body still behave as direct flex children
+   of .window-content, exactly as if this wrapper didn't exist. */
+.pf2e-consumables-tracker .pct-panel {
+  display: contents;
+}
+
+.pf2e-consumables-tracker .pct-toolbar {
+  flex: 0 0 auto;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border-light-tertiary, #7a7971);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pf2e-consumables-tracker .pct-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.pf2e-consumables-tracker .pct-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.75rem;
+}
+
+.pf2e-consumables-tracker .pct-field span {
+  opacity: 0.75;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.pf2e-consumables-tracker .pct-field select,
+.pf2e-consumables-tracker .pct-field input[type="text"] {
+  min-width: 9rem;
+  height: 1.9rem;
+}
+
+.pf2e-consumables-tracker .pct-search-field {
+  flex: 1 1 auto;
+  min-width: 8rem;
+}
+
+.pf2e-consumables-tracker .pct-search-field input {
+  width: 100%;
+  min-width: 0;
+}
+
+.pf2e-consumables-tracker .pct-blacklist-btn,
+.pf2e-consumables-tracker .pct-sort-dir-btn,
+.pf2e-consumables-tracker .pct-refresh-btn {
+  flex: 0 0 auto;
+  height: 1.9rem;
+  line-height: 1.9rem;
+  padding: 0 0.6rem;
+}
+
+.pf2e-consumables-tracker .pct-sort-dir-btn,
+.pf2e-consumables-tracker .pct-refresh-btn {
+  width: 2.2rem;
+  padding: 0;
+  text-align: center;
+}
+
+.pf2e-consumables-tracker .pct-total-count {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.pf2e-consumables-tracker .pct-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0.5rem 0.75rem;
+}
+
+.pf2e-consumables-tracker .pct-group {
+  margin-bottom: 0.9rem;
+}
+
+.pf2e-consumables-tracker .pct-group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.3rem 0;
+  font-size: 0.95rem;
+  border-bottom: 1px solid var(--color-border-light-tertiary, #7a7971);
+  padding-bottom: 0.2rem;
+}
+
+.pf2e-consumables-tracker .pct-group-count {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  font-weight: normal;
+}
+
+.pf2e-consumables-tracker .pct-item-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pf2e-consumables-tracker .pct-item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.3rem 0.35rem;
+  border-radius: 3px;
+}
+
+.pf2e-consumables-tracker .pct-item-row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pf2e-consumables-tracker .pct-item-img {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+
+/* Everything to the right of the icon. `min-width: 0` overrides flexbox's default
+   "don't shrink below content size" behavior - without it, this column (and the name text
+   inside it) would refuse to shrink/wrap and would instead force the row wider than the
+   window, defeating the whole point of a name that's supposed to resize with the window. */
+.pf2e-consumables-tracker .pct-item-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.pf2e-consumables-tracker .pct-item-name-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+/* The name gets its own full-width line (rather than competing with level/rarity/owner in
+   one row), so it actually uses whatever width is available and grows/shrinks as the window
+   is resized instead of being squeezed down to a near-fixed width by fixed-size siblings. */
+.pf2e-consumables-tracker .pct-item-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.pf2e-consumables-tracker .pct-item-quantity {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.pf2e-consumables-tracker .pct-item-meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pf2e-consumables-tracker .pct-item-level {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.pf2e-consumables-tracker .pct-item-rarity {
+  flex: 0 0 auto;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  padding: 0.05rem 0.35rem;
+  border-radius: 2px;
+  border: 1px solid currentColor;
+}
+
+.pf2e-consumables-tracker .pct-rarity-common {
+  color: #8a8a8a;
+}
+.pf2e-consumables-tracker .pct-rarity-uncommon {
+  color: #d9a63c;
+}
+.pf2e-consumables-tracker .pct-rarity-rare {
+  color: #4287d9;
+}
+.pf2e-consumables-tracker .pct-rarity-unique {
+  color: #c04ad9;
+}
+
+.pf2e-consumables-tracker .pct-item-owner {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.pf2e-consumables-tracker .pct-item-traits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+}
+
+.pf2e-consumables-tracker .pct-trait-tag {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.05rem 0.3rem;
+  border-radius: 2px;
+}
+
+.pf2e-consumables-tracker .pct-empty-state {
+  text-align: center;
+  opacity: 0.6;
+  padding: 2rem 1rem;
+  font-style: italic;
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Blacklist config form                                                  */
+/* ---------------------------------------------------------------------- */
+
+.pf2e-consumables-tracker.blacklist-config .window-content {
+  padding: 0.75rem;
+  user-select: text;
+}
+
+.pct-blacklist-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  user-select: text;
+}
+
+.pct-blacklist-hint {
+  font-size: 0.8rem;
+  opacity: 0.8;
+  margin: 0;
+}
+
+.pct-blacklist-label {
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
+.pct-blacklist-form textarea {
+  width: 100%;
+  font-family: monospace;
+  resize: vertical;
+  user-select: text;
+}
+
+.pct-known-names {
+  font-size: 0.75rem;
+  user-select: text;
+}
+
+.pct-known-names summary {
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.pct-known-names-hint {
+  font-size: 0.7rem;
+  opacity: 0.7;
+  font-style: italic;
+  margin: 0.3rem 0;
+}
+
+.pct-known-names ul {
+  max-height: 8rem;
+  overflow-y: auto;
+  margin: 0.3rem 0 0 0;
+  padding-left: 1.2rem;
+}
+
+.pct-known-names li {
+  cursor: pointer;
+  border-radius: 2px;
+  padding: 0.05rem 0.2rem;
+}
+
+.pct-known-names li:hover {
+  background: rgba(255, 255, 255, 0.12);
+  text-decoration: underline;
+}
+
+.pct-blacklist-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.pf2e-consumables-tracker .pct-request-btn { flex: 0 0 auto; width: auto; align-self: center; }
+.pf2e-consumables-tracker .pct-checkbox { display: flex; gap: .4rem; align-items: center; }

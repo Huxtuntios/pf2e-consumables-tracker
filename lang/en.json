@@ -1,0 +1,115 @@
+{
+  "pf2e-consumables-tracker": {
+    "AppTitle": "PF2e Consumables Tracker",
+    "SidebarButton": "Consumables",
+    "Refresh": "Refresh",
+    "NoTraits": "No Traits",
+    "SearchPlaceholder": "Search by name...",
+    "EmptyState": "No consumables found for the current filters.",
+    "TotalCount": "{count} item(s) shown",
+    "SortDirAsc": "Ascending (click to sort descending)",
+    "SortDirDesc": "Descending (click to sort ascending)",
+    "Level": "Lvl",
+    "Labels": {
+      "View": "View",
+      "Player": "Player",
+      "Character": "Character",
+      "GroupBy": "Group By",
+      "SortBy": "Sort By",
+      "Search": "Search"
+    },
+    "ViewMode": {
+      "party": "Whole Party",
+      "player": "Specific Player",
+      "character": "Specific Character"
+    },
+    "GroupBy": {
+      "none": "No Grouping",
+      "category": "Category",
+      "trait": "Trait",
+      "character": "Character"
+    },
+    "SortBy": {
+      "name": "Name",
+      "level": "Level",
+      "character": "Character"
+    },
+    "Category": {
+      "potion": "Potions",
+      "elixir": "Elixirs",
+      "oil": "Oils",
+      "scroll": "Scrolls",
+      "wand": "Wands",
+      "talisman": "Talismans",
+      "snare": "Snares",
+      "ammo": "Ammunition",
+      "poison": "Poisons",
+      "food": "Food & Drink",
+      "tool": "Tools",
+      "mutagen": "Mutagens",
+      "drug": "Drugs",
+      "ampoule": "Ampoules",
+      "serum": "Serums",
+      "gadget": "Gadgets",
+      "other": "Other"
+    },
+    "Settings": {
+      "IgnoreContainerItems": {
+        "Name": "Hide Items in Containers",
+        "Hint": "When enabled, consumables currently stored inside a container (backpack, bag of holding, etc.) are hidden from the tracker. Only items in the character's main inventory are shown."
+      },
+      "RestrictPlayerView": {
+        "Name": "Restrict Player View",
+        "Hint": "When enabled, non-GM players can only view the whole party or their own character(s) in the tracker - they cannot select another specific player's characters."
+      },
+      "BlacklistMenu": {
+        "Name": "Consumables Blacklist",
+        "Label": "Configure Blacklist",
+        "Hint": "Choose specific consumables (by name or id) to always hide from the tracker."
+      }
+    },
+    "Keybinding": {
+      "OpenTracker": {
+        "Name": "Open Consumables Tracker",
+        "Hint": "Opens the Party Consumables Tracker panel. Unbound by default - assign a key in Configure Controls."
+      }
+    },
+    "Blacklist": {
+      "Hint": "Enter one item name or item ID per line. Matching is case-insensitive. Any consumable matching a line below will be hidden from the tracker for everyone.",
+      "TextareaLabel": "Hidden Consumables",
+      "KnownNamesLabel": "Currently tracked consumable names",
+      "KnownNamesHint": "Click a name to add it to the list above.",
+      "Save": "Save",
+      "Cancel": "Cancel"
+    },
+    "Enemies": "Show hostile tokens on scene",
+    "Recipient": "Recipient",
+    "Request": "Request",
+    "Take": "Take",
+    "TakeUse": "Take and use",
+    "Cancel": "Cancel",
+    "RequestPrompt": "Request 1 × {item} from {source} for {target}?",
+    "RequestText": "{requester} requests 1 × {item} from {source} for {target}. Mode: {mode}.",
+    "NoGM": "An active GM must be online to request an item.",
+    "NoOwner": "No player owners of this character are online.",
+    "RequestInvalid": "The request is stale or unavailable; check item, permissions and status.",
+    "RequestSent": "Request whispered to the owner and GM.",
+    "RequestError": "Request action failed. See console for details.",
+    "Approve": "Approve",
+    "ApprovePrompt": "{requester} requests 1 × {item}: {source} → {target}. Mode: {mode}. Approve the transfer?",
+    "ApprovedText": "{owner} approved 1 × {item}: {source} → {target}. The active GM must execute the transfer.",
+    "ApprovedSent": "Approval sent to the GM. The item has not yet been transferred.",
+    "Execute": "Execute transfer",
+    "ExecutePrompt": "{owner} approved {requester}’s request: 1 × {item}, {source} → {target}. Mode: {mode}. Execute?",
+    "TransferWarning": "Transfer is not atomic. On failure inspect both inventories; do not retry automatically.",
+    "ActiveGMOnly": "Only the active GM may execute transfers.",
+    "UnsupportedTransfer": "This system version does not support the system transfer API.",
+    "TransferFailed": "Transfer may be partial. Inspect and repair both inventories; this request is locked.",
+    "TransferredText": "Transferred 1 × {item}: {source} → {target}.",
+    "UseInstruction": "The recipient may click Use below to use it from their own client.",
+    "Use": "Use",
+    "UsePrompt": "Use {item} on {target} via the system?",
+    "UseUnavailable": "The item is unavailable or this system version does not support use via this button; open its sheet.",
+    "ToolbeltUseSheet": "Opened {target}. In the inventory, find {item} and click Toolbelt’s use button (▶). If it is missing, check identification and Toolbelt settings; nothing was consumed automatically."
+  }
+}

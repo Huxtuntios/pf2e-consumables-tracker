@@ -1,0 +1,16 @@
+import { readFile, writeFile, mkdir, cp, rm } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+const repo = process.env.GITHUB_REPOSITORY;
+const tag = process.env.GITHUB_REF_NAME;
+if (!/^[\w.-]+\/[\w.-]+$/.test(repo ?? '') || !/^v[\w.-]+$/.test(tag ?? '')) throw Error('GITHUB_REPOSITORY and tag GITHUB_REF_NAME required');
+const manifest = JSON.parse(await readFile('module.json', 'utf8'));
+if (`v${manifest.version}` !== tag) throw Error('Tag must match module.json version');
+const base = `https://github.com/${repo}`;
+Object.assign(manifest, {url:base, manifest:`${base}/releases/latest/download/module.json`, download:`${base}/releases/download/${tag}/module.zip`});
+await rm('dist', {recursive:true, force:true});
+await mkdir('dist/module', {recursive:true});
+for (const entry of ['scripts','styles','templates','lang','LICENSE.txt','README.md','GUIDE.md']) await cp(entry, `dist/module/${entry}`, {recursive:true});
+await rm('dist/module/scripts/build-release.mjs', {force:true});
+await writeFile('dist/module/module.json', JSON.stringify(manifest,null,2)+'\n');
+await writeFile('dist/module.json', JSON.stringify(manifest,null,2)+'\n');
+execFileSync('zip',['-qr','../module.zip','.'],{cwd:'dist/module'});

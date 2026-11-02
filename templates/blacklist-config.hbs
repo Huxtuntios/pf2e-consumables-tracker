@@ -1,0 +1,29 @@
+<div class="pct-blacklist-form">
+  <p class="pct-blacklist-hint">{{localize "pf2e-consumables-tracker.Blacklist.Hint"}}</p>
+
+  <label class="pct-blacklist-label" for="pct-blacklist-textarea">
+    {{localize "pf2e-consumables-tracker.Blacklist.TextareaLabel"}}
+  </label>
+  <textarea id="pct-blacklist-textarea" name="blacklist" rows="8" spellcheck="false">{{blacklistText}}</textarea>
+
+  {{#if knownNames.length}}
+    <details class="pct-known-names" open>
+      <summary>{{localize "pf2e-consumables-tracker.Blacklist.KnownNamesLabel"}}</summary>
+      <p class="pct-known-names-hint">{{localize "pf2e-consumables-tracker.Blacklist.KnownNamesHint"}}</p>
+      <ul>
+        {{#each knownNames}}
+          <li data-action="addKnownName" data-name="{{this}}">{{this}}</li>
+        {{/each}}
+      </ul>
+    </details>
+  {{/if}}
+
+  <footer class="pct-blacklist-footer">
+    <button type="button" data-action="cancel">
+      <i class="fa-solid fa-xmark"></i> {{localize "pf2e-consumables-tracker.Blacklist.Cancel"}}
+    </button>
+    <button type="submit">
+      <i class="fa-solid fa-floppy-disk"></i> {{localize "pf2e-consumables-tracker.Blacklist.Save"}}
+    </button>
+  </footer>
+</div>

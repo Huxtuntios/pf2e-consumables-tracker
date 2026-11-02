@@ -30,7 +30,7 @@ Targets Foundry VTT 13+ with PF2e or SF2e. The transfer and use APIs and both sy
 
 ## Publishing a release
 
-The source archive is intended for GitHub Desktop. Copy its contents into a repository (preserve `.git`), commit and push. The workflow `.github/workflows/release.yml` runs tests and builds `module.json` and `module.zip` when a matching version tag (e.g. `v1.1.3`) is pushed. URLs are generated from the actual repository; nothing is published by installing the source. Enable GitHub Actions and allow workflow write permissions as needed. A release manifest exists only after a successful published release.
+The source archive is intended for GitHub Desktop. Copy its contents into a repository (preserve `.git`), commit and push. The workflow `.github/workflows/release.yml` runs tests and builds `module.json` and `module.zip` when a matching version tag (e.g. `v1.1.4`) is pushed. URLs are generated from the actual repository; nothing is published by installing the source. Enable GitHub Actions and allow workflow write permissions as needed. A release manifest exists only after a successful published release.
 
 ## Migration
 

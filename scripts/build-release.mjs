@@ -4,7 +4,9 @@ const repo = process.env.GITHUB_REPOSITORY;
 const tag = process.env.GITHUB_REF_NAME;
 if (!/^[\w.-]+\/[\w.-]+$/.test(repo ?? '') || !/^v[\w.-]+$/.test(tag ?? '')) throw Error('GITHUB_REPOSITORY and tag GITHUB_REF_NAME required');
 const manifest = JSON.parse(await readFile('module.json', 'utf8'));
-if (`v${manifest.version}` !== tag) throw Error('Tag must match module.json version');
+if (`v${manifest.version}` !== tag) {
+    throw Error(`Release tag ${tag} does not match module.json version ${manifest.version}; expected v${manifest.version}. Tag must point to the commit containing the intended files.`);
+}
 const base = `https://github.com/${repo}`;
 Object.assign(manifest, {url:base, manifest:`${base}/releases/latest/download/module.json`, download:`${base}/releases/download/${tag}/module.zip`});
 await rm('dist', {recursive:true, force:true});

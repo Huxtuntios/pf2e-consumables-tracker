@@ -28,6 +28,8 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** The single shared instance, created lazily the first time the tracker is opened. */
   static #instance = null;
+  static #localFilters = null;
+  static #persistQueue = Promise.resolve();
 
   static DEFAULT_OPTIONS = {
     id: "pf2e-consumables-tracker-app",
@@ -58,38 +60,47 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
 
   constructor(options = {}) {
     super(options);
-    // View mode, group-by, and sort preferences are remembered per-player (client-scoped
-    // setting) so the panel opens the way each person last left it, instead of resetting to
-    // the same defaults every session. actorId/userId and the search box are deliberately
-    // NOT persisted: a remembered actor/player id could point at something since renamed or
-    // deleted (though _prepareContext already falls back gracefully if so), and a leftover
-    // search term is more likely to cause "why is this empty" confusion than help.
-    const persisted = game.settings.get(MODULE_ID, "lastFilters") ?? {};
+    const persisted = ConsumablesTrackerApp.#localFilters ?? game.settings.get(MODULE_ID, "lastFilters") ?? {};
     this.allyCache = null;
     this.allyRevision = 0;
     this.allyRefreshTimer = null;
+    this.itemDocuments = new Map();
+    this.collapsedGroups = new Set(Array.isArray(persisted.collapsedGroups) ? persisted.collapsedGroups : []);
+    this.persistQueue = ConsumablesTrackerApp.#persistQueue;
     this.filters = {
       viewMode: persisted.viewMode ?? "party",
-      actorId: null,
-      userId: null,
+      actorId: persisted.actorId ?? null,
+      userId: persisted.userId ?? null,
       groupBy: persisted.groupBy ?? "category",
       sortBy: persisted.sortBy ?? "level",
       sortDir: persisted.sortDir ?? "asc",
       search: "",
-      recipientId: game.user.character?.id ?? null,
-      showEnemies: false,
-      showAllies: false
+      recipientId: persisted.recipientId ?? game.user.character?.id ?? null,
+      showEnemies: persisted.showEnemies === true,
+      showAllies: persisted.showAllies === true,
+      compact: persisted.compact === true,
+      category: persisted.category ?? "",
+      side: persisted.side ?? "",
+      character: persisted.character ?? ""
     };
   }
 
-  /** Persist the current view/group/sort preferences for next time. */
+  /** Serialize writes to avoid an older async settings update overwriting a newer one. */
   #persistFilters() {
-    game.settings.set(MODULE_ID, "lastFilters", {
-      viewMode: this.filters.viewMode,
-      groupBy: this.filters.groupBy,
-      sortBy: this.filters.sortBy,
-      sortDir: this.filters.sortDir
-    });
+    const {search, ...filters} = this.filters;
+    const snapshot = {...filters, collapsedGroups: [...this.collapsedGroups]};
+    ConsumablesTrackerApp.#localFilters = snapshot;
+    ConsumablesTrackerApp.#persistQueue = ConsumablesTrackerApp.#persistQueue.catch(() => {})
+      .then(() => game.settings.set(MODULE_ID, "lastFilters", snapshot))
+      .catch(error => console.error(`${MODULE_ID} | Could not save filters`, error));
+    this.persistQueue = ConsumablesTrackerApp.#persistQueue;
+  }
+
+  async #resolveItem(uuid) {
+    const entry = this.itemDocuments.get(uuid);
+    if (entry && entry.actor.items.get(entry.item.id) === entry.item &&
+        (game.user.isGM || entry.actor.testUserPermission(game.user, "OBSERVER"))) return entry.item;
+    return await fromUuid(uuid);
   }
 
   /* -------------------------------------------- */
@@ -132,7 +143,7 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
     clearInterval(this.allyRefreshTimer);
     this.allyRefreshTimer = null;
     super._onClose(options);
-    // Allow a fresh instance (with reset filters) next time the tracker is opened.
+    // The next instance restores saved choices; the search is intentionally reset.
     if (ConsumablesTrackerApp.#instance === this) ConsumablesTrackerApp.#instance = null;
   }
 
@@ -147,14 +158,31 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
    * @override
    */
   async render(options) {
+    const body = this.element?.querySelector(".pct-body");
+    const scrollTop = body?.scrollTop;
     const active = this.element?.querySelector(":focus");
     const focusedFilter = active?.dataset?.filter;
+    const focusedAction = active?.dataset?.action;
+    const focusedUuid = active?.dataset?.uuid;
+    const focusedGroup = active?.tagName === "SUMMARY" ? active.closest("details[data-group-key]") : null;
+    const focusGroupKey = focusedGroup?.dataset?.groupKey;
+    const focusGroupType = focusedGroup?.dataset?.groupType;
     const selectionStart = active?.tagName === "INPUT" && active.type === "text" ? active.selectionStart : null;
     const selectionEnd = active?.tagName === "INPUT" && active.type === "text" ? active.selectionEnd : null;
 
     const result = await super.render(options);
 
-    if (focusedFilter) {
+    const newBody = this.element?.querySelector(".pct-body");
+    if (newBody && typeof scrollTop === "number") newBody.scrollTop = scrollTop;
+    if (focusedAction) {
+      const el = [...(this.element?.querySelectorAll("[data-action]") ?? [])].find(node =>
+        node.dataset.action === focusedAction && node.dataset.uuid === focusedUuid);
+      el?.focus();
+    } else if (focusGroupKey != null) {
+      const el = [...(this.element?.querySelectorAll("details[data-group-key]") ?? [])].find(node =>
+        node.dataset.groupKey === focusGroupKey && node.dataset.groupType === focusGroupType);
+      el?.querySelector("summary")?.focus();
+    } else if (focusedFilter) {
       const el = this.element?.querySelector(`[data-filter="${focusedFilter}"]`);
       if (el) {
         el.focus();
@@ -222,6 +250,13 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
       }
     }
     let items = sources.flatMap(({actor, side, displayName}) => getActorConsumables(actor, { ignoreContainerItems, blacklist, side, displayName }));
+    const documents = new Map();
+    for (const {actor} of sources) for (const item of actor.items) {
+      // Foundry collections iterate values; test and older wrappers may iterate entries.
+      const doc = Array.isArray(item) ? item[1] : item;
+      if (doc?.uuid) documents.set(doc.uuid, {actor, item:doc});
+    }
+    this.itemDocuments = documents;
     let shareError = false;
     if (!isGM && game.settings.get(MODULE_ID, "shareCombatAllies")) {
       const combatId = game.combats?.active?.active ? game.combats.active.id : null;
@@ -239,6 +274,20 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
       }
     }
 
+    const makeChoices = (key, label) => {
+      const options = [...new Set(items.map(item => item[key]).filter(Boolean))];
+      if (!options.includes(this.filters[key])) this.filters[key] = "";
+      return options.map(value => ({value, label: label(value), selected: value === this.filters[key]}))
+        .sort((a,b) => a.label.localeCompare(b.label));
+    };
+    const categoryChoices = makeChoices("category", getCategoryLabel);
+    const sideChoices = makeChoices("side", getSideLabel);
+    // Character quick-filter labels are visible names, including token names for combat NPCs.
+    items.forEach(item => { item.character = item.actorName; });
+    const quickCharacterChoices = makeChoices("character", value => value);
+    items = items.filter(item => (!this.filters.category || item.category === this.filters.category) &&
+      (!this.filters.side || item.side === this.filters.side) &&
+      (!this.filters.character || item.character === this.filters.character));
     const searchTerm = (this.filters.search ?? "").trim().toLowerCase();
     if (searchTerm) {
       items = items.filter((item) => item.name.toLowerCase().includes(searchTerm));
@@ -253,7 +302,7 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
       macro: game.i18n.localize(`${MODULE_ID}.UseRoute.macro`)
     };
     await Promise.all(sorted.filter(item => item.canUse).map(async item => {
-      try { item.useTitle = routeLabels[await getUseRoute(await fromUuid(item.uuid))] ?? routeLabels.system; }
+      try { item.useTitle = routeLabels[await getUseRoute(await this.#resolveItem(item.uuid))] ?? routeLabels.system; }
       catch { item.useTitle = routeLabels.system; }
     }));
 
@@ -262,7 +311,8 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
         key,
         label: this.#getGroupLabel(this.filters.groupBy, key),
         items: groupItems,
-        count: groupItems.length
+        count: groupItems.length,
+        collapsed: this.collapsedGroups.has(JSON.stringify([this.filters.groupBy, key]))
       }))
       .sort((a, b) => this.filters.groupBy === "side"
         ? SIDES.indexOf(a.key) - SIDES.indexOf(b.key)
@@ -271,6 +321,7 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
     return {
       isGM,
       shareError,
+      categoryChoices, sideChoices, quickCharacterChoices,
       showRecipientSelect: !isGM && recipients.length > 0,
       recipientChoices: recipients.map(a => ({ id: a.id, name: a.name, selected: a.id === this.filters.recipientId })),
       filters: this.filters,
@@ -340,6 +391,15 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
       }, 10000);
     }
 
+    for (const el of root.querySelectorAll("details[data-group-key]")) {
+      el.addEventListener("toggle", () => {
+        const key = JSON.stringify([el.dataset.groupType, el.dataset.groupKey]);
+        const wasCollapsed = this.collapsedGroups.has(key);
+        if (el.open === !wasCollapsed) return;
+        if (el.open) this.collapsedGroups.delete(key); else this.collapsedGroups.add(key);
+        this.#persistFilters();
+      });
+    }
     for (const el of root.querySelectorAll("select[data-filter]")) {
       el.addEventListener("change", this.#onFilterChange.bind(this));
     }
@@ -352,7 +412,7 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
     const { filter } = event.target.dataset;
     if (!filter) return;
     this.filters[filter] = event.target.type === "checkbox" ? event.target.checked : event.target.value;
-    this.#persistFilters();
+    if (filter !== "search") this.#persistFilters();
     this.render();
   }
 
@@ -365,8 +425,9 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
     event.preventDefault();
     const uuid = target.dataset.uuid;
     if (!uuid) return;
-    const item = await fromUuid(uuid);
-    item?.sheet?.render(true);
+    const item = await this.#resolveItem(uuid);
+    if (!item?.sheet) return ui.notifications.warn(game.i18n.localize(`${MODULE_ID}.OpenUnavailable`));
+    await item.sheet.render(true);
   }
 
   static async #onRequestItem(event, target) {
@@ -383,7 +444,7 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
     if (target.disabled) return;
     target.disabled = true;
     try {
-      const item = await fromUuid(target.dataset.uuid ?? "");
+      const item = await this.#resolveItem(target.dataset.uuid ?? "");
       await useConsumable(item, {event});
     } catch (error) {
       console.error(`${MODULE_ID} | Use failed`, error);

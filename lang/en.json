@@ -95,7 +95,7 @@
     "Recipient": "Recipient",
     "Request": "Request",
     "Take": "Take",
-    "TakeUse": "Take and use",
+    "TakeUse": "Request to use",
     "Cancel": "Cancel",
     "RequestPrompt": "Request 1 × {item} from {source} for {target}?",
     "RequestText": "{requester} requests 1 × {item} from {source} for {target}. Mode: {mode}.",
@@ -121,7 +121,7 @@
     "UseUnavailable": "This item cannot be used from here (you must own it, and it must be a consumable with a system use action). Open its sheet instead.",
     "ShareUnavailable": "Could not load allied NPC consumables. An active GM and Foundry permission to query users are required.",
     "Allies": "Allies in combat",
-    "UseEmpty": "No quantity or charges left.",
+    "UseEmpty": "No items or charges remaining.",
     "UseError": "Could not use the item. See console for details.",
     "UseCancelled": "Use was cancelled by the item macro.",
     "UseRoute": {
@@ -134,6 +134,29 @@
       "ally": "Ally",
       "neutral": "Neutral",
       "enemy": "Enemy"
-    }
+    },
+    "QuickCategory": "Category",
+    "QuickCharacter": "Character / token",
+    "QuickSide": "Side",
+    "All": "All",
+    "Compact": "Compact view",
+    "CombatHint": "Allies and enemies are NPCs in the active encounter only.",
+    "Charges": "Charges",
+    "InContainer": "In container",
+    "Unidentified": "Unidentified",
+    "OpenUnavailable": "Cannot open this item: it is unavailable or was deleted.",
+    "RequestFlow": "The owner approves, then the active GM transfers the item. Use it with a separate button after delivery.",
+    "Decline": "Decline",
+    "DeclinePrompt": "Decline the request for 1 × {item} from {requester}?",
+    "DeclinedText": "{owner} declined the request for 1 × {item}: {source} → {target}.",
+    "DeclinedSent": "Request declined. No item was transferred.",
+    "StatusPending": "Waiting for owner",
+    "StatusApproved": "Waiting for GM",
+    "StatusDeclined": "Declined",
+    "StatusProcessing": "Transfer in progress",
+    "StatusDone": "Transferred",
+    "StatusFailed": "Check both inventories",
+    "StatusUnknown": "Status unavailable",
+    "StatusLabel": "Status: {status}"
   }
 }

@@ -1,5 +1,5 @@
 import { MODULE_ID, INCLUDED_ITEM_TYPES, KNOWN_CATEGORIES, SIDES, SIDE_ICONS } from "../constants.mjs";
-import { isUsableType, isEmpty } from "../use-consumable.mjs";
+import { isUsableType, isEmpty, getUses } from "../use-consumable.mjs";
 
 /**
  * data/consumables-data.mjs
@@ -15,36 +15,12 @@ import { isUsableType, isEmpty } from "../use-consumable.mjs";
 /*  Actor resolution                             */
 /* -------------------------------------------- */
 
-/**
- * Resolve a "party" actor to use for the "whole party" view.
- *
- * Both pf2e and sf2e use a dedicated Actor with `type: "party"` (confirmed directly against
- * live party actor documents from both systems - pf2e 8.4.0 and sf2e 1.4.0 - which share the
- * identical `system.details.members` shape used below). There is no reliable `game.actors
- * .party` convenience getter to depend on (tested directly against a live world), so we just
- * look up the Party-type actor directly. In practice a world has exactly one; if a world ever
- * had more than one, this takes the first and the caller falls back to scanning all
- * player-owned character actors if it turns out to have no resolvable members.
- */
+/** Use the first party actor, falling back to player-owned characters. */
 function getActivePartyActor() {
   return game.actors.find((a) => a.type === "party") ?? null;
 }
 
-/**
- * Resolve a Party actor's member character actors.
- *
- * A Party actor does NOT embed its members' full actor data. The member list lives at
- * `system.details.members`, an array of plain reference objects shaped like
- * `{ uuid: "Actor.<id>" }` (confirmed directly against live party actor documents from both
- * pf2e 8.4.0 and sf2e 1.4.0 - identical shape on both) - each one needs to be resolved to the
- * actual Actor document. We use `fromUuidSync()` rather than the async `fromUuid()` because
- * world actors referenced this way are already loaded in the `game.actors` collection, so
- * synchronous resolution is safe and keeps this whole data module (and its callers)
- * synchronous.
- *
- * If a future system version adds a `.members` convenience getter that already returns
- * resolved Actor documents, we use that instead and skip manual resolution entirely.
- */
+/** Resolve embedded party members or their UUID references. */
 function getPartyMembers(partyActor) {
   if (!partyActor) return [];
 
@@ -195,12 +171,21 @@ export function sideFields(side) {
  */
 function normalizeConsumable(item, actor, {side, displayName} = {}) {
   const canUse = Boolean(actor.isOwner) && isUsableType(item);
+  const uses = getUses(item);
+  const showCharges = uses && Number.isFinite(uses.value) && Number.isFinite(uses.max) && uses.max > 1;
+  const known = game.user.isGM ? item.system?.identification?.identified : null;
+  const containerId = item.system?.containerId;
+  const container = containerId ? actor.items.get(containerId) : null;
   return {
     id: item.id,
     actorUuid: actor.uuid,
     uuid: item.uuid,
-    name: item.name,
-    img: item.img,
+    name: known?.name || item.name,
+    img: known?.img || item.img,
+    unidentified: Boolean(game.user.isGM && item.isIdentified === false),
+    charges: showCharges ? {value: uses.value, max: uses.max} : null,
+    inContainer: Boolean(containerId),
+    containerName: container?.name ?? "",
     quantity: Number(item.system?.quantity ?? 1),
     level: getItemLevel(item),
     category: getItemCategory(item),
@@ -212,6 +197,7 @@ function normalizeConsumable(item, actor, {side, displayName} = {}) {
     ...sideFields(side ?? getActorSide(actor)),
     canOpen: true,
     canUse,
+    empty: isEmpty(item),
     useDisabled: canUse && isEmpty(item),
     canRequest: !game.user.isGM && actor.type === "character" && !actor.isOwner && actor.hasPlayerOwner && Number(item.system?.quantity ?? 1) > 0
   };

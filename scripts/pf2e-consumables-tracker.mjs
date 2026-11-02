@@ -17,7 +17,7 @@ Hooks.once("init", () => {
     scope: "world",
     config: true,
     type: Boolean,
-    default: true,
+    default: false,
     onChange: () => ConsumablesTrackerApp.refreshOpenInstance()
   });
 

@@ -343,3 +343,14 @@
 .pf2e-consumables-tracker .pct-side-toggle.pct-side-enemy i { color: var(--pct-side-enemy); }
 .pf2e-consumables-tracker .pct-use-btn { flex: 0 0 auto; width: auto; align-self: center; white-space: nowrap; }
 .pf2e-consumables-tracker .pct-use-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Compact view, charges, containers and collapsible groups */
+.pf2e-consumables-tracker .pct-combat-hint { margin: 0; font-size: .72rem; opacity: .75; }
+.pf2e-consumables-tracker .pct-group-header { display: list-item; cursor: pointer; }
+.pf2e-consumables-tracker .pct-item-empty .pct-item-main, .pf2e-consumables-tracker .pct-item-empty .pct-item-img { opacity: .55; }
+.pf2e-consumables-tracker .pct-charges, .pf2e-consumables-tracker .pct-container, .pf2e-consumables-tracker .pct-unidentified { font-size: .72rem; }
+.pf2e-consumables-tracker .pct-container { opacity: .8; }
+.pf2e-consumables-tracker .pct-unidentified { white-space: nowrap; opacity: .75; }
+.pf2e-consumables-tracker .pct-compact .pct-item-traits { display: none; }
+.pf2e-consumables-tracker .pct-compact .pct-item-row { padding-top: .1rem; padding-bottom: .1rem; }
+.pf2e-consumables-tracker .pct-compact .pct-group { margin-bottom: .35rem; }

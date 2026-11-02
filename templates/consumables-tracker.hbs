@@ -1,5 +1,6 @@
-<div class="pct-panel">
+<div class="pct-panel {{#if filters.compact}}pct-compact{{/if}}">
 <div class="pct-toolbar">
+  {{#if isGM}}<p class="pct-combat-hint">{{localize "pf2e-consumables-tracker.CombatHint"}}</p>{{/if}}
   <div class="pct-toolbar-row">
     <label class="pct-field">
       <span>{{localize "pf2e-consumables-tracker.Labels.View"}}</span>
@@ -81,6 +82,16 @@
     </button>
   </div>
 
+  <div class="pct-toolbar-row pct-quick-filters">
+    <label class="pct-field"><span>{{localize "pf2e-consumables-tracker.QuickCategory"}}</span>
+      <select data-filter="category"><option value="">{{localize "pf2e-consumables-tracker.All"}}</option>{{#each categoryChoices}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
+    <label class="pct-field"><span>{{localize "pf2e-consumables-tracker.QuickCharacter"}}</span>
+      <select data-filter="character"><option value="">{{localize "pf2e-consumables-tracker.All"}}</option>{{#each quickCharacterChoices}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
+    <label class="pct-field"><span>{{localize "pf2e-consumables-tracker.QuickSide"}}</span>
+      <select data-filter="side"><option value="">{{localize "pf2e-consumables-tracker.All"}}</option>{{#each sideChoices}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
+    <label class="pct-checkbox"><input type="checkbox" data-filter="compact" {{#if filters.compact}}checked{{/if}} /> {{localize "pf2e-consumables-tracker.Compact"}}</label>
+  </div>
+
   {{#if showRecipientSelect}}
   <label class="pct-field"><span>{{localize "pf2e-consumables-tracker.Recipient"}}</span>
     <select data-filter="recipientId">{{#each recipientChoices}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}</select>
@@ -96,20 +107,18 @@
   {{#if hasResults}}
     {{#each groups}}
       <section class="pct-group">
-        {{#if ../showGroupHeaders}}
-          <h3 class="pct-group-header">
-            {{this.label}}
-            <span class="pct-group-count">{{this.count}}</span>
-          </h3>
-        {{/if}}
+        {{#if ../showGroupHeaders}}<details data-group-type="{{../filters.groupBy}}" data-group-key="{{this.key}}" {{#unless this.collapsed}}open{{/unless}}><summary class="pct-group-header">
+          {{this.label}} <span class="pct-group-count">{{this.count}}</span>
+        </summary>{{/if}}
 
         <ul class="pct-item-list">
           {{#each this.items}}
-            <li class="pct-item-row pct-row-{{this.side}}">
+            <li class="pct-item-row pct-row-{{this.side}} {{#if this.empty}}pct-item-empty{{/if}}">
               {{#if this.canOpen}}<img class="pct-item-img" data-action="openItem" data-uuid="{{this.uuid}}" src="{{this.img}}" alt="{{this.name}}" />{{else}}<img class="pct-item-img" src="{{this.img}}" alt="{{this.name}}" />{{/if}}
               <div class="pct-item-main">
                 <div class="pct-item-name-line">
                   {{#if this.canOpen}}<a class="pct-item-name" data-action="openItem" data-uuid="{{this.uuid}}" title="{{this.name}}">{{this.name}}</a>{{else}}<span class="pct-item-name" title="{{this.name}}">{{this.name}}</span>{{/if}}
+                  {{#if this.unidentified}}<span class="pct-unidentified" title="{{localize 'pf2e-consumables-tracker.Unidentified'}}"><i class="fa-solid fa-eye-slash"></i> {{localize "pf2e-consumables-tracker.Unidentified"}}</span>{{/if}}
                   {{#unless (pctEq this.quantity 1)}}
                     <span class="pct-item-quantity">&times;{{this.quantity}}</span>
                   {{/unless}}
@@ -121,6 +130,8 @@
                   <span class="pct-item-rarity pct-rarity-{{this.rarity}}">{{this.rarity}}</span>
                   <span class="pct-side-badge pct-side-{{this.side}}" title="{{this.sideLabel}}"><i class="{{this.sideIcon}}"></i> {{this.sideLabel}}</span>
                   <span class="pct-item-owner">{{this.actorName}}</span>
+                  {{#if this.charges}}<span class="pct-charges">{{localize "pf2e-consumables-tracker.Charges"}}: {{this.charges.value}}/{{this.charges.max}}</span>{{/if}}
+                  {{#if this.inContainer}}<span class="pct-container" title="{{localize 'pf2e-consumables-tracker.InContainer'}}{{#if this.containerName}}: {{this.containerName}}{{/if}}"><i class="fa-solid fa-box"></i> {{#if this.containerName}}{{this.containerName}}{{else}}{{localize "pf2e-consumables-tracker.InContainer"}}{{/if}}</span>{{/if}}
                 </div>
                 {{#if this.traits.length}}
                   <div class="pct-item-traits">
@@ -135,6 +146,7 @@
             </li>
           {{/each}}
         </ul>
+        {{#if ../showGroupHeaders}}</details>{{/if}}
       </section>
     {{/each}}
   {{else}}

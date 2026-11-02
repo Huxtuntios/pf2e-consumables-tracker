@@ -113,7 +113,7 @@ export async function useConsumable(item, {event, confirm = true} = {}) {
     if (!ok) return false;
   }
   // The item could have been used, moved or deleted while the dialog was open.
-  const current = item.uuid ? await fromUuid(item.uuid) : item;
+  const current = actor.items?.get ? actor.items.get(item.id) : (item.uuid ? await fromUuid(item.uuid) : item);
   const owner = current?.actor ?? current?.parent;
   if (!owner?.isOwner || !isUsableType(current)) { ui.notifications.warn(L("UseUnavailable")); return false; }
   if (isEmpty(current)) { ui.notifications.warn(L("UseEmpty")); return false; }

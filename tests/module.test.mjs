@@ -9,14 +9,14 @@ globalThis.Hooks = {on:(n,f)=>{(hooks[n]??=[]).push(f)}, once:()=>{}};
 globalThis.ui={notifications:{warn:()=>{},info:()=>{},error:()=>{}}};
 globalThis.CONST={TOKEN_DISPOSITIONS:{HOSTILE:-1,FRIENDLY:1,NEUTRAL:0}};
 globalThis.CONFIG={PF2E:{},SF2E:{}};
-globalThis.document={createElement:tag=>tag==='div'?{innerHTML:'',querySelector:()=>null,get outerHTML(){return `<div>${this.innerHTML}</div>`}}:({addEventListener(_n,cb){this.click=cb;},disabled:false})};
+globalThis.document={createElement:tag=>tag==='div'?{innerHTML:'',querySelector:()=>null,get outerHTML(){return `<div>${this.innerHTML}</div>`}}:({tagName:tag.toUpperCase(),addEventListener(_n,cb){this.click=cb;},disabled:false})};
 let dialogResult='take';
-globalThis.foundry={applications:{api:{ApplicationV2:class {render(){}}, HandlebarsApplicationMixin: Base => Base, DialogV2:{wait:async()=>dialogResult, confirm:async()=>true}}}};
+globalThis.foundry={applications:{api:{ApplicationV2:class {render(){} _onRender(){} _onClose(){}}, HandlebarsApplicationMixin: Base => Base, DialogV2:{wait:async()=>dialogResult, confirm:async()=>true}}}};
 const users=new Collection(), actors=new Collection(), messages=new Collection();
 const gm={id:'gm',name:'GM',isGM:true,active:true}, alice={id:'alice',name:'Alice',active:true}, bob={id:'bob',name:'Bob',active:true};
 for(const u of [gm,alice,bob]) users.set(u.id,u); users.activeGM=gm;
 const values={confirmUse:true,ignoreContainerItems:false,restrictPlayerView:false,shareCombatAllies:false,blacklist:[],lastFilters:{}};
-globalThis.game={user:alice,users,actors,messages,combats:{active:null},system:{id:'pf2e'},i18n:{localize:k=>k,has:()=>false,format:(k,v)=>`${k} ${JSON.stringify(v)}`},settings:{get:(_m,k)=>values[k],set:()=>{}}};
+globalThis.game={user:alice,users,actors,messages,combats:{active:null},system:{id:'pf2e'},i18n:{localize:k=>k,has:()=>false,format:(k,v)=>`${k} ${JSON.stringify(v)}`},settings:{get:(_m,k)=>values[k],set:async (_m,k,v)=>{values[k]=v}}};
 function actor(id, owner) { const a={id, uuid:`Actor.${id}`,name:id,type:'character',hasPlayerOwner:true,items:new Collection(),testUserPermission(u,p){return p==='OBSERVER'||u.id===owner||u.isGM}, get isOwner(){return game.user.id===owner||game.user.isGM}}; return a; }
 const source=actor('source','bob'), target=actor('target','alice'); actors.set(source.id,source); actors.set(target.id,target); alice.character=target;
 const item={id:'item',uuid:'Actor.source.Item.item',name:'Potion <test>',type:'consumable',system:{quantity:2,category:'potion',level:{value:1},traits:{value:[]}},parent:source};source.items.set(item.id,item);
@@ -28,21 +28,22 @@ globalThis.canvas={ready:true,tokens:{placeables:[]}};
 globalThis.ChatMessage={create:async data=>{const m={id:String(messages.size+1),author:game.user, content:data.content,whisper:data.whisper,flags:data.flags,getFlag:(namespace,key)=>m.flags?.[namespace]?.[key],setFlag:async(namespace,key,val)=>{m.flags[namespace][key]=val}};messages.set(m.id,m);return m}};
 let createRequest, Data, App;
 before(async()=>{({createRequest,registerRequestHooks:modules.register}=await import('../scripts/requests.mjs')); modules.register(); Data=await import('../scripts/data/consumables-data.mjs'); ({ConsumablesTrackerApp:App}=await import('../scripts/apps/consumables-tracker-app.mjs'));});
-function action(message){const html={querySelector:()=>({append:(button)=>{html.button=button}})};hooks.renderChatMessageHTML[0](message,html);return html.button;}
+function action(message, index=0){const nodes=[];const html={querySelector:()=>({append:(node)=>nodes.push(node)})};hooks.renderChatMessageHTML[0](message,html);return nodes.filter(node=>node.tagName==='BUTTON')[index];}
+function statusText(message){const nodes=[];const html={querySelector:()=>({append:node=>nodes.push(node)})};hooks.renderChatMessageHTML[0](message,html);return nodes.find(n=>n.className==='pct-request-status')?.textContent;}
 async function click(button){assert.ok(button);await button.click({preventDefault(){}})}
 
 test('request, approval, active GM transfer and recipient use; no replay',async()=>{
  game.user=alice;dialogResult='use';await createRequest(item.uuid,target.id);const request=messages.get('1');assert.ok(request);assert.match(request.content,/&lt;test&gt;/);assert.deepEqual(new Set(request.whisper),new Set(['alice','bob','gm']));
  assert.equal(action(request),undefined);game.user=bob;await click(action(request));const approval=messages.get('2');assert.ok(approval);assert.equal(transferred,0);
  game.user=gm;await click(action(approval));assert.equal(transferred,1);assert.equal(request.getFlag('pf2e-consumables-tracker','request').status,'done');
- await click(action(approval));assert.equal(transferred,1);const delivery=messages.get('3');game.user=bob;assert.equal(action(delivery),undefined);game.user=alice;await click(action(delivery));assert.equal(consumed,1);
+ assert.equal(action(approval),undefined);assert.equal(transferred,1);const delivery=messages.get('3');game.user=bob;assert.equal(action(delivery),undefined);game.user=alice;await click(action(delivery));assert.equal(consumed,1);
 });
 test('reject forged or changed request and missing owner / GM',async()=>{
- messages.clear(); game.user=alice; dialogResult='take'; await createRequest(item.uuid,target.id);let req=messages.get('1');game.user=bob;await click(action(req));const approval=messages.get('2');req.flags['pf2e-consumables-tracker'].request.mode='use';game.user=gm;await click(action(approval));assert.equal(transferred,1);
+ messages.clear(); game.user=alice; dialogResult='take'; await createRequest(item.uuid,target.id);let req=messages.get('1');game.user=bob;await click(action(req));const approval=messages.get('2');req.flags['pf2e-consumables-tracker'].request.mode='use';game.user=gm;assert.equal(action(approval),undefined);assert.equal(transferred,1);
  messages.clear();users.activeGM=null;game.user=alice;await createRequest(item.uuid,target.id);assert.equal(messages.size,0); users.activeGM=gm; bob.active=false;await createRequest(item.uuid,target.id);assert.equal(messages.size,0);bob.active=true;
 });
 test('system error locks request rather than retrying',async()=>{
- messages.clear();game.user=alice;await createRequest(item.uuid,target.id);const req=messages.get('1');game.user=bob;await click(action(req));const approval=messages.get('2'); const old=source.transferItemToActor;source.transferItemToActor=async()=>{throw Error('simulated')};game.user=gm;await click(action(approval));assert.equal(req.getFlag('pf2e-consumables-tracker','request').status,'failed');source.transferItemToActor=old;await click(action(approval));assert.equal(transferred,1);
+ messages.clear();game.user=alice;await createRequest(item.uuid,target.id);const req=messages.get('1');game.user=bob;await click(action(req));const approval=messages.get('2'); const old=source.transferItemToActor;source.transferItemToActor=async()=>{throw Error('simulated')};game.user=gm;await click(action(approval));assert.equal(req.getFlag('pf2e-consumables-tracker','request').status,'failed');source.transferItemToActor=old;assert.equal(action(approval),undefined);assert.equal(transferred,1);
 });
 test('filters and categories; safe special grouping keys',()=>{
  game.user=alice;const rows=Data.getActorConsumables(source,{blacklist:[],ignoreContainerItems:false});assert.equal(rows.length,1);assert.equal(rows[0].canRequest,true);assert.equal(Data.getActorConsumables(source,{blacklist:['potion <test>'],ignoreContainerItems:false}).length,0);assert.equal(Data.groupConsumables([{category:'__proto__'}],'category')['__proto__'].length,1);
@@ -226,4 +227,86 @@ test('independent unlinked combat NPCs are distinct; disabling invalidates an in
  values.shareCombatAllies=false;respond([{name:'should not show',actorName:'Ally',traits:[],category:'potion'}]);
  const ctx=await pending;assert.equal(ctx.totalCount,2);
  delete gm.query;game.combats.active=null;
+});
+
+test('charges, container labels, and unidentified names respect the current user',()=>{
+ const a=actor('charge-test','alice');const bag={id:'bag',name:'Backpack'};a.items.set('bag',bag);
+ const i={...item,id:'mystery',parent:a,uuid:'Actor.charge-test.Item.mystery',name:'Unidentified potion',img:'unknown.png',isIdentified:false,
+   system:{...item.system,quantity:2,containerId:'bag',uses:{value:0,max:3},identification:{identified:{name:'True name',img:'true.png'}}}};
+ a.items.set(i.id,i);game.user=alice;
+ let row=Data.getActorConsumables(a,{blacklist:[],ignoreContainerItems:false})[0];
+ assert.equal(row.name,'Unidentified potion');assert.equal(row.img,'unknown.png');assert.equal(row.unidentified,false);
+ assert.deepEqual(row.charges,{value:0,max:3});assert.equal(row.empty,true);assert.equal(row.inContainer,true);assert.equal(row.containerName,'Backpack');
+ assert.equal(Data.getActorConsumables(a,{blacklist:[],ignoreContainerItems:true}).length,0);
+ game.user=gm;row=Data.getActorConsumables(a,{blacklist:[],ignoreContainerItems:false})[0];
+ assert.equal(row.name,'True name');assert.equal(row.img,'true.png');assert.equal(row.unidentified,true);
+ i.system.uses={value:1,max:1};assert.equal(Data.getActorConsumables(a,{blacklist:[],ignoreContainerItems:false})[0].charges,null);
+});
+
+test('GM opens unidentified synthetic-token item from live actor without UUID resolver',async()=>{
+ game.user=gm;let opened=0;
+ const npc={...actor('isolated','none'),type:'npc',uuid:'Scene.s.Token.t.Actor.synthetic',items:new Collection()};
+ const i={...item,id:'mystery',uuid:`${npc.uuid}.Item.mystery`,parent:npc,name:'Unknown',isIdentified:false,
+  sheet:{render:async()=>{opened++}},system:{...item.system,identification:{identified:{name:'GM true name'}}}};npc.items.set(i.id,i);
+ game.combats.active={id:'b',active:true,combatants:[{actor:npc,token:{name:'Secret',disposition:-1}}]};
+ const app=new App();app.filters.showEnemies=true;const ctx=await app._prepareContext({});
+ assert.equal(ctx.groups.flatMap(g=>g.items).find(x=>x.uuid===i.uuid).name,'GM true name');
+ assert.equal(await fromUuid(i.uuid),null,'simulates resolver failing for synthetic actor');
+ await App.DEFAULT_OPTIONS.actions.openItem.call(app,{preventDefault(){}},{dataset:{uuid:i.uuid}});assert.equal(opened,1);
+ npc.items.delete(i.id);await App.DEFAULT_OPTIONS.actions.openItem.call(app,{preventDefault(){}},{dataset:{uuid:i.uuid}});assert.equal(opened,1);
+ game.combats.active=null;
+});
+
+test('quick filters by category, side and character are independent of grouping',async()=>{
+ game.user=gm;const a=actor('filter-test','alice');a.name='Quick character';actors.set(a.id,a);
+ a.items.set('special',{...item,id:'special',uuid:`${a.uuid}.Item.special`,parent:a,name:'Quick elixir',system:{...item.system,category:'elixir'}});
+ const app=new App();app.filters.groupBy='side';app.filters.category='elixir';app.filters.character='Quick character';app.filters.side='pc';
+ const ctx=await app._prepareContext({});assert.equal(ctx.totalCount,1);assert.equal(ctx.groups[0].items[0].name,'Quick elixir');
+ assert.ok(ctx.categoryChoices.some(x=>x.value==='elixir'&&x.selected));actors.delete(a.id);
+});
+
+test('switches and collapsed groups survive close and queued setting writes',async()=>{
+ game.user=gm;values.lastFilters={};const app=new App();
+ const controls=[{type:'checkbox',dataset:{filter:'showAllies'},checked:true},{type:'checkbox',dataset:{filter:'showEnemies'},checked:true},{type:'checkbox',dataset:{filter:'compact'},checked:true}];
+ const group={open:false,dataset:{groupType:'category',groupKey:'potion'},addEventListener(_event,fn){this.handler=fn}};
+ controls.forEach(c=>c.addEventListener=function(_event,fn){this.handler=fn});
+ app.element={querySelectorAll(selector){return selector==='details[data-group-key]'?[group]:selector==='input[data-filter]'?controls:[]},querySelector(){return null}};
+ app._onRender({},{});for(const c of controls)c.handler({target:c});group.handler();
+ const immediately=new App();assert.equal(immediately.filters.showAllies,true);assert.equal(immediately.filters.showEnemies,true);assert.equal(immediately.filters.compact,true);
+ assert.ok(immediately.collapsedGroups.has(JSON.stringify(['category','potion'])));
+ await app.persistQueue;assert.equal(values.lastFilters.showEnemies,true);assert.equal(values.lastFilters.showAllies,true);assert.equal(values.lastFilters.compact,true);
+});
+
+test('owner can decline once and all participants see a rejected request',async()=>{
+ messages.clear();item.system.quantity=2;game.user=alice;dialogResult='use';await createRequest(item.uuid,target.id);const req=messages.get('1');
+ assert.match(statusText(req),/StatusPending/);game.user=bob;assert.ok(action(req,0));assert.ok(action(req,1));await click(action(req,1));
+ assert.equal(messages.size,2);assert.equal(messages.get('2').flags['pf2e-consumables-tracker'].request.kind,'decline');
+ assert.match(statusText(req),/StatusDeclined/);assert.equal(action(req),undefined);game.user=gm;assert.equal(action(messages.get('2')),undefined);
+ assert.equal(item.system.quantity,2);game.user=alice;assert.match(statusText(req),/StatusDeclined/);
+});
+
+test('approval and transfer statuses follow the workflow',async()=>{
+ messages.clear();item.system.quantity=2;game.user=alice;dialogResult='take';await createRequest(item.uuid,target.id);const req=messages.get('1');
+ game.user=bob;await click(action(req));assert.match(statusText(req),/StatusApproved/);assert.equal(action(req),undefined);
+ const approval=messages.get('2');game.user=gm;assert.match(statusText(approval),/StatusApproved/);await click(action(approval));
+ assert.match(statusText(req),/StatusDone/);assert.match(statusText(approval),/StatusDone/);assert.equal(action(approval),undefined);
+});
+
+test('settings writes remain ordered across consecutive window instances',async()=>{
+ game.user=gm;const oldSet=game.settings.set;let release;let writes=0;
+ game.settings.set=async(_m,key,value)=>{if(++writes===1) await new Promise(r=>release=r);values[key]=value};
+ function toggle(app,checked){const input={type:'checkbox',dataset:{filter:'showEnemies'},checked,addEventListener(_n,fn){this.handler=fn}};
+  app.element={querySelector:()=>null,querySelectorAll:s=>s==='input[data-filter]'?[input]:[]};app._onRender({},{});input.handler({target:input});}
+ try {
+  const first=new App();toggle(first,true);await new Promise(r=>setTimeout(r,0));assert.equal(writes,1);
+  const second=new App();toggle(second,false);await new Promise(r=>setTimeout(r,0));assert.equal(writes,1,'second write waits');
+  release();await second.persistQueue;assert.equal(writes,2);assert.equal(values.lastFilters.showEnemies,false);
+ } finally {game.settings.set=oldSet}
+});
+
+test('forged denial does not prevent a legitimate approval',async()=>{
+ messages.clear();item.system.quantity=2;game.user=alice;dialogResult='take';await createRequest(item.uuid,target.id);const req=messages.get('1');
+ const d=req.getFlag('pf2e-consumables-tracker','request');const snapshot=JSON.stringify([d.sourceId,d.targetId,d.itemId,d.quantity,d.mode,alice.id]);
+ await ChatMessage.create({content:'fake',flags:{'pf2e-consumables-tracker':{request:{kind:'decline',requestId:req.id,snapshot}}}});
+ game.user=bob;assert.match(statusText(req),/StatusPending/);await click(action(req));assert.match(statusText(req),/StatusApproved/);
 });

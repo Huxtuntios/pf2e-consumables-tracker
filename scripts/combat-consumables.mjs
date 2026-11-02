@@ -35,6 +35,7 @@ export function buildSharedCombatAllies({ combatId } = {}) {
       result.push({
         name: item.name, img: item.img, quantity: item.quantity, level: item.level,
         category: item.category, traits: item.traits, rarity: item.rarity,
+        charges: item.charges, empty: item.empty, inContainer: item.inContainer, containerName: item.containerName,
         actorName: token.name, ...sideFields("ally"), canOpen: false, canUse: false, canRequest: false
       });
     }

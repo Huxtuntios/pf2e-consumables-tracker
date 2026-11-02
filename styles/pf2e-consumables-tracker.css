@@ -317,3 +317,29 @@
 .pf2e-consumables-tracker .pct-checkbox { display: flex; gap: .4rem; align-items: center; }
 
 .pf2e-consumables-tracker .pct-share-warning { margin: .4rem .75rem; color: var(--color-level-warning, #9a5b00); }
+
+/* 1.1.5: side markers and use button */
+.pf2e-consumables-tracker {
+  --pct-side-pc: #3b7ddd;
+  --pct-side-ally: #2e9e5b;
+  --pct-side-neutral: #8a8a8a;
+  --pct-side-enemy: #c4372f;
+}
+.pf2e-consumables-tracker .pct-item-row { border-left: 3px solid transparent; }
+.pf2e-consumables-tracker .pct-row-pc { border-left-color: var(--pct-side-pc); }
+.pf2e-consumables-tracker .pct-row-ally { border-left-color: var(--pct-side-ally); }
+.pf2e-consumables-tracker .pct-row-neutral { border-left-color: var(--pct-side-neutral); }
+.pf2e-consumables-tracker .pct-row-enemy { border-left-color: var(--pct-side-enemy); }
+.pf2e-consumables-tracker .pct-side-badge {
+  display: inline-flex; align-items: center; gap: .25rem;
+  padding: 0 .4rem; border-radius: 999px; font-size: .75rem; line-height: 1.3rem;
+  color: #fff; white-space: nowrap;
+}
+.pf2e-consumables-tracker .pct-side-badge.pct-side-pc { background: var(--pct-side-pc); }
+.pf2e-consumables-tracker .pct-side-badge.pct-side-ally { background: var(--pct-side-ally); }
+.pf2e-consumables-tracker .pct-side-badge.pct-side-neutral { background: var(--pct-side-neutral); }
+.pf2e-consumables-tracker .pct-side-badge.pct-side-enemy { background: var(--pct-side-enemy); }
+.pf2e-consumables-tracker .pct-side-toggle.pct-side-ally i { color: var(--pct-side-ally); }
+.pf2e-consumables-tracker .pct-side-toggle.pct-side-enemy i { color: var(--pct-side-enemy); }
+.pf2e-consumables-tracker .pct-use-btn { flex: 0 0 auto; width: auto; align-self: center; white-space: nowrap; }
+.pf2e-consumables-tracker .pct-use-btn:disabled { opacity: .5; cursor: not-allowed; }

@@ -33,7 +33,8 @@
     {{/if}}
 
     {{#if isGM}}
-      <label class="pct-checkbox"><input type="checkbox" data-filter="showEnemies" {{#if filters.showEnemies}}checked{{/if}} /> {{localize "pf2e-consumables-tracker.Enemies"}}</label>
+      <label class="pct-checkbox pct-side-toggle pct-side-ally"><input type="checkbox" data-filter="showAllies" {{#if filters.showAllies}}checked{{/if}} /> <i class="fa-solid fa-handshake"></i> {{localize "pf2e-consumables-tracker.Allies"}}</label>
+      <label class="pct-checkbox pct-side-toggle pct-side-enemy"><input type="checkbox" data-filter="showEnemies" {{#if filters.showEnemies}}checked{{/if}} /> <i class="fa-solid fa-skull"></i> {{localize "pf2e-consumables-tracker.Enemies"}}</label>
       <button type="button" class="pct-blacklist-btn" data-action="openBlacklist">
         <i class="fa-solid fa-ban"></i> {{localize "pf2e-consumables-tracker.Settings.BlacklistMenu.Label"}}
       </button>
@@ -104,7 +105,7 @@
 
         <ul class="pct-item-list">
           {{#each this.items}}
-            <li class="pct-item-row">
+            <li class="pct-item-row pct-row-{{this.side}}">
               {{#if this.canOpen}}<img class="pct-item-img" data-action="openItem" data-uuid="{{this.uuid}}" src="{{this.img}}" alt="{{this.name}}" />{{else}}<img class="pct-item-img" src="{{this.img}}" alt="{{this.name}}" />{{/if}}
               <div class="pct-item-main">
                 <div class="pct-item-name-line">
@@ -118,6 +119,7 @@
                     {{localize "pf2e-consumables-tracker.Level"}} {{this.level}}
                   </span>
                   <span class="pct-item-rarity pct-rarity-{{this.rarity}}">{{this.rarity}}</span>
+                  <span class="pct-side-badge pct-side-{{this.side}}" title="{{this.sideLabel}}"><i class="{{this.sideIcon}}"></i> {{this.sideLabel}}</span>
                   <span class="pct-item-owner">{{this.actorName}}</span>
                 </div>
                 {{#if this.traits.length}}
@@ -128,6 +130,7 @@
                   </div>
                 {{/if}}
               </div>
+              {{#if this.canUse}}<button type="button" class="pct-use-btn" data-action="useItem" data-uuid="{{this.uuid}}" title="{{#if this.useDisabled}}{{localize 'pf2e-consumables-tracker.UseEmpty'}}{{else}}{{this.useTitle}}{{/if}}" {{#if this.useDisabled}}disabled{{/if}}><i class="fa-solid fa-play"></i> {{localize "pf2e-consumables-tracker.Use"}}</button>{{/if}}
               {{#if this.canRequest}}<button type="button" class="pct-request-btn" data-action="requestItem" data-uuid="{{this.uuid}}" title="{{localize 'pf2e-consumables-tracker.Request'}}"><i class="fa-solid fa-hand"></i> {{localize "pf2e-consumables-tracker.Request"}}</button>{{/if}}
             </li>
           {{/each}}

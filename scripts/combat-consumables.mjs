@@ -1,5 +1,5 @@
 import { MODULE_ID } from "./constants.mjs";
-import { getActorConsumables } from "./data/consumables-data.mjs";
+import { getActorConsumables, sideFields } from "./data/consumables-data.mjs";
 
 export const ALLY_QUERY = `${MODULE_ID}.combatAllies`;
 
@@ -35,7 +35,7 @@ export function buildSharedCombatAllies({ combatId } = {}) {
       result.push({
         name: item.name, img: item.img, quantity: item.quantity, level: item.level,
         category: item.category, traits: item.traits, rarity: item.rarity,
-        actorName: token.name, canOpen: false, canRequest: false
+        actorName: token.name, ...sideFields("ally"), canOpen: false, canUse: false, canRequest: false
       });
     }
   }

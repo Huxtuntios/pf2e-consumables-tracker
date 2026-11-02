@@ -42,10 +42,21 @@ export const KNOWN_CATEGORIES = [
 ];
 
 /** Options for the "Group by" dropdown. */
-export const GROUP_BY_OPTIONS = ["none", "category", "trait", "character"];
+export const GROUP_BY_OPTIONS = ["none", "category", "trait", "character", "side"];
 
 /** Options for the "Sort by" dropdown. */
 export const SORT_BY_OPTIONS = ["name", "level", "character"];
 
 /** Options for the "View" dropdown. */
 export const VIEW_MODE_OPTIONS = ["party", "player", "character"];
+
+/** Row markers: player characters, allied NPCs and enemy NPCs, in display order. */
+export const SIDES = ["pc", "ally", "neutral", "enemy"];
+
+/** Font Awesome icons for each side marker. */
+export const SIDE_ICONS = {
+  pc: "fa-solid fa-user-shield",
+  ally: "fa-solid fa-handshake",
+  neutral: "fa-solid fa-circle-question",
+  enemy: "fa-solid fa-skull"
+};

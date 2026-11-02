@@ -1,4 +1,5 @@
 import { MODULE_ID, INCLUDED_ITEM_TYPES } from "./constants.mjs";
+import { useConsumable } from "./use-consumable.mjs";
 
 const L = key => game.i18n.localize(`${MODULE_ID}.${key}`);
 const F = (key, data) => game.i18n.format(`${MODULE_ID}.${key}`, data);
@@ -116,59 +117,14 @@ async function execute(approval) {
   } finally { running.delete(message.id); }
 }
 
-/** Toolbelt does not expose its physical-item use function as a public API. When its
- * sheet button is relevant, defer to that button rather than duplicating its logic. */
-export async function requiresToolbeltSheet(item) {
-  if (item?.type !== "consumable" || !game.modules?.get("pf2e-toolbelt")?.active) return false;
-  const toolbelt = game.toolbelt;
-  try {
-    if (typeof toolbelt?.getToolSetting !== "function") return true;
-    if (toolbelt.getToolSetting("actionable", "use")) return true;
-    if (!toolbelt.getToolSetting("actionable", "item")) return false;
-    // Toolbelt's sheet button deliberately bypasses item macros for spell scrolls/wands.
-    const category = item.category ?? item.system?.category;
-    if (["scroll", "wand"].includes(category) && item.system?.spell) return false;
-    const getMacro = toolbelt.api?.actionable?.getItemMacro;
-    if (typeof getMacro !== "function") return true;
-    return Boolean(await getMacro(item));
-  } catch (error) {
-    console.warn(`${MODULE_ID} | Could not inspect Toolbelt settings; opening the sheet`, error);
-    return true;
-  }
-}
-
-async function useDelivery(message) {
+async function useDelivery(message, event) {
   const data = flags(message);
   const gm = game.users.get(authorId(message));
   const target = game.actors.get(data?.targetId);
   const item = await fromUuid(data?.itemUuid ?? "");
-  if (data?.kind !== "delivery" || data.mode !== "use" || !gm?.isGM || game.user.id !== data.recipientId || !target?.isOwner || item?.parent?.id !== target.id || typeof item?.consume !== "function") return notify("UseUnavailable");
-  const toolbeltSheet = await requiresToolbeltSheet(item);
-  const current = await fromUuid(data.itemUuid);
-  if (!target.isOwner || !current || current.parent?.id !== target.id || typeof current.consume !== "function") return notify("UseUnavailable");
-  if (toolbeltSheet) {
-    if (typeof target.sheet?.render !== "function") return notify("UseUnavailable");
-    await target.sheet.render(true);
-    ui.notifications.info(F("ToolbeltUseSheet", {item:esc(current.name), target:esc(target.name)}), {permanent:true});
-    return;
-  }
-  const quantity = Number(current.system?.quantity ?? current.quantity ?? 0);
-  const uses = current.uses?.value ?? current.system?.uses?.value;
-  if (quantity < 1 || (uses != null && Number(uses) <= 0)) return notify("UseUnavailable");
-  const ok = await foundry.applications.api.DialogV2.confirm({window:{title:L("Use")}, content:`<p>${esc(F("UsePrompt",{item:current.name,target:target.name}))}</p>`,rejectClose:false, modal:true});
-  if (!ok) return;
-  const latest = await fromUuid(data.itemUuid);
-  if (!target.isOwner || !latest || latest.parent?.id !== target.id || typeof latest.consume !== "function") return notify("UseUnavailable");
-  // Settings may have changed while the dialog was open. Never bypass Toolbelt silently.
-  if (await requiresToolbeltSheet(latest)) {
-    if (typeof target.sheet?.render !== "function") return notify("UseUnavailable");
-    await target.sheet.render(true);
-    ui.notifications.info(F("ToolbeltUseSheet", {item:esc(latest.name), target:esc(target.name)}), {permanent:true});
-    return;
-  }
-  const latestUses = latest.uses?.value ?? latest.system?.uses?.value;
-  if (Number(latest.system?.quantity ?? latest.quantity ?? 0) < 1 || (latestUses != null && Number(latestUses) <= 0)) return notify("UseUnavailable");
-  await latest.consume();
+  if (data?.kind !== "delivery" || data.mode !== "use" || !gm?.isGM || game.user.id !== data.recipientId || !target?.isOwner || item?.parent?.id !== target.id) return notify("UseUnavailable");
+  // Same routing as the tracker's Use button, including PF2e Toolbelt settings and item macros.
+  await useConsumable(item, {event});
 }
 
 export function registerRequestHooks() {
@@ -184,7 +140,7 @@ export function registerRequestHooks() {
     const button = document.createElement("button"); button.type="button"; button.textContent=label;
     button.addEventListener("click", async event => {
       event.preventDefault(); button.disabled=true;
-      try { await handler(message); } catch (err) { console.error(`${MODULE_ID} | Request action failed`,err); ui.notifications.error(L("RequestError")); }
+      try { await handler(message, event); } catch (err) { console.error(`${MODULE_ID} | Request action failed`,err); ui.notifications.error(L("RequestError")); }
       finally { button.disabled=false; }
     });
     (html.querySelector(".message-content") ?? html).append(button);

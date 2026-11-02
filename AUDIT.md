@@ -1,3 +1,11 @@
+# Use from tracker and side markers — 1.1.5
+
+- New `scripts/use-consumable.mjs` mirrors Toolbelt 3.59.2 `usePhysicalItem`/`consumeItem` (foundry-helpers `8697ee8`): cast scrolls/wands → system `consume()`; linked item macro → `macro.execute({actor,item,use,cancel})`; Use Consumable → Toolbelt-style chat card and decrement; otherwise system `consume()`. Only the item owner can use; empty quantity/charges and non-consumable types (ammo) are refused; state is re-read after confirmation.
+- Tracker rows get a Use button (tooltip shows the route) and the delivery message uses the same routine instead of opening the sheet.
+- Rows are marked PC / Ally / Neutral / Enemy; new "Side" grouping; GM "Allies in combat" toggle next to "Enemies in combat"; combat NPC rows show token names. Shared ally rows are re-localized on the player client and never usable.
+- New client setting `confirmUse` (default on). Removed `ToolbeltUseSheet` string.
+- Mocked tests cover system/Toolbelt/macro/cast/empty/owner/ammo routes for PF2e and SF2e, side grouping and GM-only toggles. A live Foundry test is still required.
+
 # Combatant views — 1.1.3
 
 - GM enemy toggle now selects hostile NPC token combatants of the active encounter, not all NPC tokens on a scene. Linked actors are deduplicated; unlinked token actors remain distinct.

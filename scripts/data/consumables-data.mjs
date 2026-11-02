@@ -1,4 +1,5 @@
-import { MODULE_ID, INCLUDED_ITEM_TYPES, KNOWN_CATEGORIES } from "../constants.mjs";
+import { MODULE_ID, INCLUDED_ITEM_TYPES, KNOWN_CATEGORIES, SIDES, SIDE_ICONS } from "../constants.mjs";
+import { isUsableType, isEmpty } from "../use-consumable.mjs";
 
 /**
  * data/consumables-data.mjs
@@ -166,9 +167,34 @@ function isBlacklisted(item, blacklist) {
 }
 
 /**
+ * Which side a tracked actor is on. Player characters are "pc"; combat NPCs are marked by
+ * their token disposition (friendly = ally, hostile = enemy, otherwise neutral).
+ */
+export function getActorSide(actor, token = null) {
+  if (actor?.type === "character" && actor.hasPlayerOwner) return "pc";
+  const D = CONST.TOKEN_DISPOSITIONS;
+  const disposition = token?.disposition ?? actor?.prototypeToken?.disposition;
+  if (disposition === D.FRIENDLY) return "ally";
+  if (disposition === D.HOSTILE) return "enemy";
+  return "neutral";
+}
+
+/** Localized side label. */
+export function getSideLabel(side) {
+  return game.i18n.localize(`${MODULE_ID}.Side.${SIDES.includes(side) ? side : "neutral"}`);
+}
+
+/** Display fields for a side marker, also used for GM-shared ally rows. */
+export function sideFields(side) {
+  const key = SIDES.includes(side) ? side : "neutral";
+  return {side: key, sideLabel: getSideLabel(key), sideIcon: SIDE_ICONS[key]};
+}
+
+/**
  * Convert a raw pf2e/sf2e Item document into the plain object the tracker app renders.
  */
-function normalizeConsumable(item, actor) {
+function normalizeConsumable(item, actor, {side, displayName} = {}) {
+  const canUse = Boolean(actor.isOwner) && isUsableType(item);
   return {
     id: item.id,
     actorUuid: actor.uuid,
@@ -181,9 +207,12 @@ function normalizeConsumable(item, actor) {
     traits: getItemTraits(item),
     rarity: getItemRarity(item),
     actorId: actor.id,
-    actorName: actor.name,
+    actorName: displayName || actor.name,
     actorImg: actor.img,
+    ...sideFields(side ?? getActorSide(actor)),
     canOpen: true,
+    canUse,
+    useDisabled: canUse && isEmpty(item),
     canRequest: !game.user.isGM && actor.type === "character" && !actor.isOwner && actor.hasPlayerOwner && Number(item.system?.quantity ?? 1) > 0
   };
 }
@@ -193,9 +222,9 @@ function normalizeConsumable(item, actor) {
  * blacklist filters.
  *
  * @param {Actor} actor
- * @param {{ignoreContainerItems: boolean, blacklist: string[]}} options
+ * @param {{ignoreContainerItems: boolean, blacklist: string[], side?: string, displayName?: string}} options
  */
-export function getActorConsumables(actor, { ignoreContainerItems, blacklist }) {
+export function getActorConsumables(actor, { ignoreContainerItems, blacklist, side, displayName }) {
   return actor.items
     .filter((item) => {
       if (!INCLUDED_ITEM_TYPES.has(item.type)) return false;
@@ -203,7 +232,7 @@ export function getActorConsumables(actor, { ignoreContainerItems, blacklist }) 
       if (isBlacklisted(item, blacklist)) return false;
       return true;
     })
-    .map((item) => normalizeConsumable(item, actor));
+    .map((item) => normalizeConsumable(item, actor, { side, displayName }));
 }
 
 /* -------------------------------------------- */
@@ -237,6 +266,9 @@ export function groupConsumables(items, groupBy) {
         break;
       case "character":
         keys = [item.actorName];
+        break;
+      case "side":
+        keys = [item.side ?? "neutral"];
         break;
       default:
         keys = [""];

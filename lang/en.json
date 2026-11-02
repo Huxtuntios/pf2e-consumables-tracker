@@ -27,7 +27,8 @@
       "none": "No Grouping",
       "category": "Category",
       "trait": "Trait",
-      "character": "Character"
+      "character": "Character",
+      "side": "Side"
     },
     "SortBy": {
       "name": "Name",
@@ -70,6 +71,10 @@
       "ShareCombatAllies": {
         "Name": "Show players allied NPC consumables in combat",
         "Hint": "Shares token names and identified item names, quantities and other displayed details with all players even if they cannot access the NPC sheet. Only visible friendly NPC combatants in the active combat are included. Off by default; hidden tokens and combatants are excluded."
+      },
+      "ConfirmUse": {
+        "Name": "Confirm before using a consumable",
+        "Hint": "Ask for confirmation before the tracker's Use button or a delivery message spends a consumable. Personal setting."
       }
     },
     "Keybinding": {
@@ -86,7 +91,7 @@
       "Save": "Save",
       "Cancel": "Cancel"
     },
-    "Enemies": "Show enemy consumables in combat",
+    "Enemies": "Enemies in combat",
     "Recipient": "Recipient",
     "Request": "Request",
     "Take": "Take",
@@ -112,9 +117,23 @@
     "TransferredText": "Transferred 1 × {item}: {source} → {target}.",
     "UseInstruction": "The recipient may click Use below to use it from their own client.",
     "Use": "Use",
-    "UsePrompt": "Use {item} on {target} via the system?",
-    "UseUnavailable": "The item is unavailable or this system version does not support use via this button; open its sheet.",
-    "ToolbeltUseSheet": "Opened {target}. In the inventory, find {item} and click Toolbelt’s use button (▶). If it is missing, check identification and Toolbelt settings; nothing was consumed automatically.",
-    "ShareUnavailable": "Could not load allied NPC consumables. An active GM and Foundry permission to query users are required."
+    "UsePrompt": "Use {item} ({target})?",
+    "UseUnavailable": "This item cannot be used from here (you must own it, and it must be a consumable with a system use action). Open its sheet instead.",
+    "ShareUnavailable": "Could not load allied NPC consumables. An active GM and Foundry permission to query users are required.",
+    "Allies": "Allies in combat",
+    "UseEmpty": "No quantity or charges left.",
+    "UseError": "Could not use the item. See console for details.",
+    "UseCancelled": "Use was cancelled by the item macro.",
+    "UseRoute": {
+      "system": "Use via the system (as on the character sheet)",
+      "toolbelt": "Use via PF2e Toolbelt (Use Consumable)",
+      "macro": "Use via the PF2e Toolbelt linked item macro"
+    },
+    "Side": {
+      "pc": "Player character",
+      "ally": "Ally",
+      "neutral": "Neutral",
+      "enemy": "Enemy"
+    }
   }
 }

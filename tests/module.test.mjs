@@ -9,13 +9,13 @@ globalThis.Hooks = {on:(n,f)=>{(hooks[n]??=[]).push(f)}, once:()=>{}};
 globalThis.ui={notifications:{warn:()=>{},info:()=>{},error:()=>{}}};
 globalThis.CONST={TOKEN_DISPOSITIONS:{HOSTILE:-1,FRIENDLY:1,NEUTRAL:0}};
 globalThis.CONFIG={PF2E:{},SF2E:{}};
-globalThis.document={createElement:()=>({addEventListener(_n,cb){this.click=cb;},disabled:false})};
+globalThis.document={createElement:tag=>tag==='div'?{innerHTML:'',querySelector:()=>null,get outerHTML(){return `<div>${this.innerHTML}</div>`}}:({addEventListener(_n,cb){this.click=cb;},disabled:false})};
 let dialogResult='take';
 globalThis.foundry={applications:{api:{ApplicationV2:class {render(){}}, HandlebarsApplicationMixin: Base => Base, DialogV2:{wait:async()=>dialogResult, confirm:async()=>true}}}};
 const users=new Collection(), actors=new Collection(), messages=new Collection();
 const gm={id:'gm',name:'GM',isGM:true,active:true}, alice={id:'alice',name:'Alice',active:true}, bob={id:'bob',name:'Bob',active:true};
 for(const u of [gm,alice,bob]) users.set(u.id,u); users.activeGM=gm;
-const values={ignoreContainerItems:false,restrictPlayerView:false,shareCombatAllies:false,blacklist:[],lastFilters:{}};
+const values={confirmUse:true,ignoreContainerItems:false,restrictPlayerView:false,shareCombatAllies:false,blacklist:[],lastFilters:{}};
 globalThis.game={user:alice,users,actors,messages,combats:{active:null},system:{id:'pf2e'},i18n:{localize:k=>k,has:()=>false,format:(k,v)=>`${k} ${JSON.stringify(v)}`},settings:{get:(_m,k)=>values[k],set:()=>{}}};
 function actor(id, owner) { const a={id, uuid:`Actor.${id}`,name:id,type:'character',hasPlayerOwner:true,items:new Collection(),testUserPermission(u,p){return p==='OBSERVER'||u.id===owner||u.isGM}, get isOwner(){return game.user.id===owner||game.user.isGM}}; return a; }
 const source=actor('source','bob'), target=actor('target','alice'); actors.set(source.id,source); actors.set(target.id,target); alice.character=target;
@@ -76,49 +76,99 @@ test('request destination must belong to requester',async()=>{
  messages.clear();game.user=alice;await createRequest(item.uuid,source.id);assert.equal(messages.size,0);
 });
 
-test('Toolbelt setting and linked macro routing matrix', async()=>{
- const {requiresToolbeltSheet}=await import('../scripts/requests.mjs');
- game.modules=new Collection([['pf2e-toolbelt',{active:true}]]);
- let options={use:true,item:false}; let macro=null;
- game.toolbelt={getToolSetting:(_group,k)=>options[k],api:{actionable:{getItemMacro:async()=>macro}}};
- const normal={type:'consumable',category:'potion',system:{}};
- for (const system of ['pf2e','sf2e']) {
-  game.system.id=system;
-  assert.equal(await requiresToolbeltSheet(normal),true,'Use Consumable');
-  options={use:false,item:true}; macro={name:'linked macro'};
-  assert.equal(await requiresToolbeltSheet(normal),true,'Item Macro linked');
-  assert.equal(await requiresToolbeltSheet({...normal,category:'wand',system:{spell:{}}}),false,'cast wand bypasses macro as Toolbelt does');
-  assert.equal(await requiresToolbeltSheet({...normal,category:'scroll',system:{spell:{}}}),false,'cast scroll bypasses macro as Toolbelt does');
-  macro=null;assert.equal(await requiresToolbeltSheet(normal),false,'Item Macro enabled but no macro');
-  options={use:false,item:false};assert.equal(await requiresToolbeltSheet(normal),false,'both disabled');
-  options.use=true;assert.equal(await requiresToolbeltSheet({type:'ammo'}),false,'Toolbelt does not add ammo button');
- }
- game.system.id='pf2e'; game.toolbelt={};assert.equal(await requiresToolbeltSheet(normal),true,'unknown API is fail-safe');
- game.modules.get('pf2e-toolbelt').active=false;assert.equal(await requiresToolbeltSheet(normal),false,'module inactive');
- delete game.toolbelt;game.modules.clear();
-});
-test('Toolbelt use opens the sheet without consuming; user setting evaluated on recipient',async()=>{
- messages.clear();game.modules=new Collection([['pf2e-toolbelt',{active:true}]]);let opened=0;target.sheet={render:async()=>{opened++}};
- game.toolbelt={getToolSetting:(_g,k)=>k==='use',api:{actionable:{getItemMacro:async()=>null}}};
- const received=target.items.get('copy');game.user=gm;
- const msg=await ChatMessage.create({content:'delivery',whisper:['alice'],flags:{'pf2e-consumables-tracker':{request:{kind:'delivery',itemUuid:received.uuid,targetId:'target',recipientId:'alice',mode:'use'}}}});
- game.user=alice;const prior=consumed;await click(action(msg));assert.equal(opened,1);assert.equal(consumed,prior);
- game.modules.clear();delete game.toolbelt;
-});
 test('empty consumable is never consumed',async()=>{
  messages.clear();game.modules=new Collection(); const received=target.items.get('copy');received.system.uses={value:0};game.user=gm;
  const msg=await ChatMessage.create({content:'delivery',whisper:['alice'],flags:{'pf2e-consumables-tracker':{request:{kind:'delivery',itemUuid:received.uuid,targetId:'target',recipientId:'alice',mode:'use'}}}});
  game.user=alice;const prior=consumed;await click(action(msg));assert.equal(consumed,prior);delete received.system.uses;
 });
 
-test('settings changed during confirmation do not bypass Toolbelt',async()=>{
- messages.clear();game.modules=new Collection([['pf2e-toolbelt',{active:true}]]);let enabled=false,opened=0;target.sheet={render:async()=>{opened++}};
- game.toolbelt={getToolSetting:(_g,k)=>k==='use'&&enabled,api:{actionable:{getItemMacro:async()=>null}}};
- const received=target.items.get('copy');game.user=gm;
- const msg=await ChatMessage.create({content:'delivery',whisper:['alice'],flags:{'pf2e-consumables-tracker':{request:{kind:'delivery',itemUuid:received.uuid,targetId:'target',recipientId:'alice',mode:'use'}}}});
- game.user=alice;const old=foundry.applications.api.DialogV2.confirm;foundry.applications.api.DialogV2.confirm=async()=>{enabled=true;return true};const prior=consumed;
- await click(action(msg));assert.equal(opened,1);assert.equal(consumed,prior);
- foundry.applications.api.DialogV2.confirm=old;game.modules.clear();delete game.toolbelt;
+function usable(owner, extra={}) {
+ const a=actor(`use-${Math.random()}`,owner); actors.set(a.id,a);
+ const log={consume:0,update:[],deleted:0,chat:0};
+ const it={id:'u',uuid:`${a.uuid}.Item.u`,name:'Healing Potion',type:'consumable',parent:a,actor:a,category:'potion',
+  system:{quantity:2,category:'potion',uses:{value:1,max:1,autoDestroy:true},level:{value:1},traits:{value:[]}},
+  consume:async()=>{log.consume++},update:async d=>{log.update.push(d)},delete:async()=>{log.deleted++},toMessage:async()=>({content:'<p>card</p>'}),...extra};
+ a.items.set(it.id,it); return {a,it,log};
+}
+const purgeUsable=()=>{for(const id of [...actors.keys()]) if(id.startsWith('use-')) actors.delete(id)};
+async function withToolbelt(settings, macro, fn){
+ const oldCreate=ChatMessage.create, oldSpeaker=ChatMessage.getSpeaker; let chats=0;
+ ChatMessage.getSpeaker=()=>({}); ChatMessage.create=async()=>{chats++};
+ game.modules=new Collection([['pf2e-toolbelt',{active:true}]]);
+ game.toolbelt={getToolSetting:(_g,k)=>Boolean(settings[k]),api:{actionable:{getItemMacro:async()=>macro}}};
+ game.i18n.format=(k,v)=>`${k} ${JSON.stringify(v)}`;
+ try { await fn(()=>chats); } finally { ChatMessage.create=oldCreate; ChatMessage.getSpeaker=oldSpeaker; game.modules.clear(); delete game.toolbelt; }
+}
+test('tracker use: system consume without Toolbelt, only for owners, never when empty',async()=>{
+ const {useConsumable}=await import('../scripts/use-consumable.mjs');
+ game.modules=new Collection();game.user=alice;
+ let {it,log}=usable('alice'); assert.equal(await useConsumable(it),true); assert.equal(log.consume,1);
+ ({it,log}=usable('bob')); assert.equal(await useConsumable(it),false); assert.equal(log.consume,0,'not owner');
+ ({it,log}=usable('alice')); it.system.uses.value=0; assert.equal(await useConsumable(it),false); assert.equal(log.consume,0,'no charges');
+ ({it,log}=usable('alice')); it.system.quantity=0; assert.equal(await useConsumable(it),false,'no quantity');
+ ({it,log}=usable('alice',{type:'ammo'})); assert.equal(await useConsumable(it),false,'ammo has no use flow');
+ const old=foundry.applications.api.DialogV2.confirm; foundry.applications.api.DialogV2.confirm=async()=>false;
+ ({it,log}=usable('alice')); assert.equal(await useConsumable(it),false); assert.equal(log.consume,0,'declined');
+ values.confirmUse=false; assert.equal(await useConsumable(it),true,'confirmation setting off'); values.confirmUse=true;
+ foundry.applications.api.DialogV2.confirm=old;purgeUsable();
+});
+test('tracker use follows PF2e Toolbelt Use Consumable and item macro like its sheet button',async()=>{
+ const {useConsumable,getUseRoute}=await import('../scripts/use-consumable.mjs');game.user=alice;
+ for (const system of ['pf2e','sf2e']) { game.system.id=system;
+  await withToolbelt({use:true},null,async chats=>{
+   const {it,log}=usable('alice'); assert.equal(await getUseRoute(it),'toolbelt');
+   await useConsumable(it); assert.equal(log.consume,0,'system consume bypassed like Toolbelt'); assert.equal(chats(),1);
+   assert.deepEqual(log.update,[{'system.quantity':1,'system.uses.value':1}],'auto-destroy stack decrement');
+  });
+  await withToolbelt({item:true},null,async()=>{
+   const {it,log}=usable('alice'); assert.equal(await getUseRoute(it),'system','macro setting without linked macro');
+   await useConsumable(it); assert.equal(log.consume,1);
+  });
+  let received=null; const macro={execute:async args=>{received=args}};
+  await withToolbelt({item:true},macro,async chats=>{
+   const {it,log}=usable('alice'); assert.equal(await getUseRoute(it),'macro');
+   await useConsumable(it); assert.equal(received.item,it); assert.equal(log.consume,0); assert.equal(log.update.length,0,'macro decides consumption');
+   await received.use(); assert.equal(chats(),1); assert.equal(log.update.length,1);
+   assert.equal(typeof received.cancel,'function');
+  });
+  await withToolbelt({item:true,use:true},macro,async()=>{
+   const {it,log}=usable('alice',{category:'scroll'}); it.system.category='scroll'; it.system.spell={}; received=null;
+   assert.equal(await getUseRoute(it),'system'); await useConsumable(it); assert.equal(log.consume,1,'cast scrolls use the system'); assert.equal(received,null);
+  });
+  await withToolbelt({use:true},null,async()=>{
+   const {it,log}=usable('alice'); it.system.uses={value:1,max:1,autoDestroy:true}; it.system.quantity=1;
+   await useConsumable(it); assert.equal(log.deleted,1,'last item deleted');
+  });
+ }
+ game.system.id='pf2e';
+ game.modules=new Collection([['pf2e-toolbelt',{active:false}]]);game.toolbelt={getToolSetting:()=>true};
+ const {it,log}=usable('alice'); await useConsumable(it); assert.equal(log.consume,1,'inactive Toolbelt ignored');
+ game.modules.clear();delete game.toolbelt;purgeUsable();
+});
+test('tracker rows mark PCs, allies and enemies; GM combat toggles; use button only for owners',async()=>{
+ const npc=(id,d)=>{const a={...actor(id,'nobody'),type:'npc',uuid:`Scene.s.Token.${id}.Actor.${id}`,items:new Collection()};
+  a.items.set('p',{...item,id:'p',uuid:`${a.uuid}.Item.p`,parent:a,consume:async()=>{}});return {actor:a,token:{name:`${id} token`,disposition:d,hidden:false}}};
+ const ally=npc('ally3',1), enemy=npc('enemy3',-1);
+ game.combats.active={id:'b',active:true,combatants:[ally,enemy]};
+ game.user=gm;const app=new App();app.filters.groupBy='side';
+ let ctx=await app._prepareContext({});assert.deepEqual(ctx.groups.map(g=>g.key),['pc']);
+ app.filters.showAllies=true;app.filters.showEnemies=true;ctx=await app._prepareContext({});
+ assert.deepEqual(ctx.groups.map(g=>g.key),['pc','ally','enemy']);
+ const rows=ctx.groups.flatMap(g=>g.items);
+ assert.equal(rows.find(r=>r.side==='enemy').actorName,'enemy3 token');assert.equal(rows.find(r=>r.side==='enemy').sideLabel,'pf2e-consumables-tracker.Side.enemy');
+ game.user=alice;ctx=await app._prepareContext({});const mine=ctx.groups.flatMap(g=>g.items);
+ assert.equal(mine.some(r=>r.side!=='pc'),false,'GM toggles never apply to players');
+ assert.equal(mine.find(r=>r.actorId==='source').canUse,false,'others items: request, not use');
+ game.combats.active=null;
+});
+test('delivery use honors Toolbelt instead of opening the sheet',async()=>{
+ messages.clear();game.user=alice;
+ await withToolbelt({use:true},null,async chats=>{
+  const {a,it,log}=usable('alice');game.user=gm;
+  const msg=await (async()=>{const m={id:'d',author:gm,flags:{'pf2e-consumables-tracker':{request:{kind:'delivery',itemUuid:it.uuid,targetId:a.id,recipientId:'alice',mode:'use'}}},getFlag(n,k){return this.flags[n][k]}};return m})();
+  game.user=alice;await click(action(msg));assert.equal(log.consume,0);assert.equal(chats(),1);assert.equal(log.update.length,1);
+ });
+ purgeUsable();
 });
 
 test('combat NPC selection excludes scene-only, wrong disposition, neutral, hidden and duplicates',async()=>{

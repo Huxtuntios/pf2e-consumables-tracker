@@ -3,6 +3,7 @@ import { ConsumablesTrackerApp } from "./apps/consumables-tracker-app.mjs";
 import { BlacklistConfigApp } from "./apps/blacklist-config-app.mjs";
 import { registerRequestHooks } from "./requests.mjs";
 import { registerCombatQuery } from "./combat-consumables.mjs";
+import { useConsumable } from "./use-consumable.mjs";
 
 Hooks.once("init", () => {
   registerRequestHooks();
@@ -35,6 +36,12 @@ Hooks.once("init", () => {
     hint: `${MODULE_ID}.Settings.ShareCombatAllies.Hint`,
     scope: "world", config: true, type: Boolean, default: false,
     onChange: () => ConsumablesTrackerApp.refreshOpenInstance()
+  });
+
+  game.settings.register(MODULE_ID, "confirmUse", {
+    name: `${MODULE_ID}.Settings.ConfirmUse.Name`,
+    hint: `${MODULE_ID}.Settings.ConfirmUse.Hint`,
+    scope: "client", config: true, type: Boolean, default: true
   });
 
   // The blacklist itself is not shown directly in the Module Settings list (config: false) -
@@ -97,7 +104,8 @@ Hooks.once("ready", () => {
     moduleData.api = {
       ConsumablesTrackerApp,
       BlacklistConfigApp,
-      open: () => ConsumablesTrackerApp.open()
+      open: () => ConsumablesTrackerApp.open(),
+      useConsumable
     };
   }
 });

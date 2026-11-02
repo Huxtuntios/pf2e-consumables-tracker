@@ -1,14 +1,17 @@
-import { MODULE_ID, GROUP_BY_OPTIONS, SORT_BY_OPTIONS, VIEW_MODE_OPTIONS } from "../constants.mjs";
+import { MODULE_ID, GROUP_BY_OPTIONS, SORT_BY_OPTIONS, VIEW_MODE_OPTIONS, SIDES } from "../constants.mjs";
 import {
   getTrackedActors,
   getActorConsumables,
   groupConsumables,
   sortConsumables,
   getCategoryLabel,
-  getTraitLabel
+  getTraitLabel,
+  getSideLabel,
+  sideFields
 } from "../data/consumables-data.mjs";
 import { getCombatNPCs, querySharedCombatAllies } from "../combat-consumables.mjs";
 import { createRequest } from "../requests.mjs";
+import { useConsumable, getUseRoute } from "../use-consumable.mjs";
 import { BlacklistConfigApp } from "./blacklist-config-app.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -44,7 +47,8 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
       openBlacklist: ConsumablesTrackerApp.#onOpenBlacklist,
       toggleSortDir: ConsumablesTrackerApp.#onToggleSortDir,
       refresh: ConsumablesTrackerApp.#onRefresh,
-      requestItem: ConsumablesTrackerApp.#onRequestItem
+      requestItem: ConsumablesTrackerApp.#onRequestItem,
+      useItem: ConsumablesTrackerApp.#onUseItem
     }
   };
 
@@ -73,7 +77,8 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
       sortDir: persisted.sortDir ?? "asc",
       search: "",
       recipientId: game.user.character?.id ?? null,
-      showEnemies: false
+      showEnemies: false,
+      showAllies: false
     };
   }
 
@@ -201,13 +206,22 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
     });
 
     const visibleActors = trackedActors.filter(a => isGM || a.testUserPermission(game.user, "OBSERVER"));
-    if (isGM && this.filters.showEnemies) {
+    const sources = visibleActors.map(actor => ({actor, side: "pc"}));
+    if (isGM) {
+      // GM-only combat views, each NPC marked by its token disposition.
       const seen = new Set(visibleActors.map(a => a.uuid));
-      for (const {actor} of getCombatNPCs(game.combats?.active, CONST.TOKEN_DISPOSITIONS.HOSTILE)) {
-        if (!seen.has(actor.uuid)) { seen.add(actor.uuid); visibleActors.push(actor); }
+      const D = CONST.TOKEN_DISPOSITIONS;
+      const combatViews = [[this.filters.showAllies, D.FRIENDLY, "ally"], [this.filters.showEnemies, D.HOSTILE, "enemy"]];
+      for (const [enabled, disposition, side] of combatViews) {
+        if (!enabled) continue;
+        for (const {actor, token} of getCombatNPCs(game.combats?.active, disposition)) {
+          if (seen.has(actor.uuid)) continue;
+          seen.add(actor.uuid);
+          sources.push({actor, side, displayName: token?.name});
+        }
       }
     }
-    let items = visibleActors.flatMap((actor) => getActorConsumables(actor, { ignoreContainerItems, blacklist }));
+    let items = sources.flatMap(({actor, side, displayName}) => getActorConsumables(actor, { ignoreContainerItems, blacklist, side, displayName }));
     let shareError = false;
     if (!isGM && game.settings.get(MODULE_ID, "shareCombatAllies")) {
       const combatId = game.combats?.active?.active ? game.combats.active.id : null;
@@ -219,7 +233,8 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
       }
       if (this.allyCache && game.settings.get(MODULE_ID, "shareCombatAllies") && game.combats?.active?.active &&
           this.allyCache.combatId === game.combats.active.id && this.allyCache.gmId === (game.users.activeGM?.id ?? null)) {
-        items.push(...this.allyCache.items);
+        // Re-localize markers on this client; the GM may use another language.
+        items.push(...this.allyCache.items.map(item => ({...item, ...sideFields("ally"), canUse: false})));
         shareError = this.allyCache.error;
       }
     }
@@ -232,6 +247,16 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
     const sorted = sortConsumables(items, this.filters.sortBy, this.filters.sortDir);
     const groupedRaw = groupConsumables(sorted, this.filters.groupBy);
 
+    const routeLabels = {
+      system: game.i18n.localize(`${MODULE_ID}.UseRoute.system`),
+      toolbelt: game.i18n.localize(`${MODULE_ID}.UseRoute.toolbelt`),
+      macro: game.i18n.localize(`${MODULE_ID}.UseRoute.macro`)
+    };
+    await Promise.all(sorted.filter(item => item.canUse).map(async item => {
+      try { item.useTitle = routeLabels[await getUseRoute(await fromUuid(item.uuid))] ?? routeLabels.system; }
+      catch { item.useTitle = routeLabels.system; }
+    }));
+
     const groups = Object.entries(groupedRaw)
       .map(([key, groupItems]) => ({
         key,
@@ -239,7 +264,9 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
         items: groupItems,
         count: groupItems.length
       }))
-      .sort((a, b) => a.label.localeCompare(b.label));
+      .sort((a, b) => this.filters.groupBy === "side"
+        ? SIDES.indexOf(a.key) - SIDES.indexOf(b.key)
+        : a.label.localeCompare(b.label));
 
     return {
       isGM,
@@ -292,6 +319,8 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
         return getTraitLabel(key);
       case "character":
         return key;
+      case "side":
+        return getSideLabel(key);
       default:
         return "";
     }
@@ -345,6 +374,23 @@ export class ConsumablesTrackerApp extends HandlebarsApplicationMixin(Applicatio
     event.stopPropagation();
     try { await createRequest(target.dataset.uuid, this.filters.recipientId); }
     catch (error) { console.error(`${MODULE_ID} | Request failed`, error); ui.notifications.error(game.i18n.localize(`${MODULE_ID}.RequestError`)); }
+  }
+
+  /** Use one consumable from the tracker, honoring PF2e Toolbelt settings and item macros. */
+  static async #onUseItem(event, target) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (target.disabled) return;
+    target.disabled = true;
+    try {
+      const item = await fromUuid(target.dataset.uuid ?? "");
+      await useConsumable(item, {event});
+    } catch (error) {
+      console.error(`${MODULE_ID} | Use failed`, error);
+      ui.notifications.error(game.i18n.localize(`${MODULE_ID}.UseError`));
+    } finally {
+      if (target.isConnected) target.disabled = false;
+    }
   }
 
   /** GM-only: open the blacklist configuration form. */

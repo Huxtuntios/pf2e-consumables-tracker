@@ -18,17 +18,19 @@ There is deliberately no button in the right-hand Actors sidebar. See [GUIDE.md]
 
 ## Features and limitations
 
+- **Use** button (1.1.5) on every consumable you own, right in the tracker. It follows PF2e Toolbelt exactly like its sheet ▶ button: spell scrolls/wands use the system cast flow, a linked Toolbelt item macro decides consumption, and **Use Consumable** uses Toolbelt's chat card; without Toolbelt the system `consume()` runs. Optional confirmation (personal setting, on by default). Empty items are disabled.
+- **Side markers** (1.1.5): every row is marked as Player character, Ally or Enemy (colored badge and stripe) by token disposition, and you can group by **Side**. GM toggles add allied and/or hostile NPCs of the active combat.
 - Party, player or character views; category, trait or character groups; search and sorting. Player visibility is bounded by Foundry document permissions.
 - GM-only toggle adds hostile NPC participants of the active combat, including unlinked tokens; it does not add unrelated NPCs elsewhere on the scene. It is off on opening and does not expose enemies to players. Multiple linked tokens of the same actor appear once.
 - Optional GM world setting shares identified consumable display data of visible friendly NPC combatants with players, even without NPC-sheet permissions. It is off by default, excludes hidden tokens/combatants and unidentified items, and respects the blacklist and container setting. Shared NPC rows are read-only; no NPC transfer or item-sheet access is granted.
 - Requests: the player chooses an owned recipient and requests **one** item. An online player owner approves in whispered chat; the active GM confirms and executes the system transfer. For “take and use”, the recipient separately clicks Use in the delivery message, on their client. No automatic roll or consumption is performed by the GM.
-- The system's transfer and `consume` methods are used when available. With PF2e Toolbelt’s **Use Consumable** enabled, or **Item Macro** enabled with a linked macro, the recipient is directed to Toolbelt’s own use button on the character inventory sheet instead of bypassing its settings. Not every item exposes `consume`; ammunition and other special items may require their sheet or another system action. Rules for casting, charges and effects belong to the game system; usage can be rejected or require further interaction there.
+- The system's transfer and `consume` methods are used when available. The delivery Use button runs the same Toolbelt-aware routine as the tracker's Use button. Not every item exposes `consume`; ammunition and other special items may require their sheet or another system action. Rules for casting, charges and effects belong to the game system; usage can be rejected or require further interaction there.
 - No distance, line-of-sight, action cost or turn checks; decide those at the table. Transfer is not atomic. If it fails or is interrupted, check both inventories manually before retrying.
 - GM blacklist and optional container filtering are display filters, not security controls.
 
 ## Compatibility
 
-Targets Foundry VTT 13+ with PF2e or SF2e. The transfer and use APIs and both systems need testing in your actual versions: no live Foundry environment was available for this build. No version is marked verified without such a test.
+Targets Foundry VTT 13+ with PF2e or SF2e. The transfer and use APIs and both systems need testing in your actual versions: no live Foundry environment was available for this build. The manifest lists Foundry 14 as verified based on the author's own testing.
 
 ## Publishing a release
 
@@ -44,7 +46,7 @@ MIT. The original copyright notice is retained in [LICENSE.txt](LICENSE.txt).
 
 ## PF2e Toolbelt
 
-Optional; not a required dependency. Inspected against Toolbelt 3.59.2 and its pinned foundry-helpers source. Its physical-item use helper is not exposed in the Toolbelt public API; when relevant settings are enabled, the delivery message opens the recipient’s sheet instead of silently skipping Toolbelt or duplicating its implementation. Select **Inventory**, find the item and press Toolbelt’s ▶ use control. No automatic use happens on opening the sheet. Toolbelt only adds this button for identified consumables; check identification and settings if it is missing. Cast scrolls/wands follow Toolbelt’s own macro-exclusion behavior. This path is not a live Foundry interoperability test.
+Optional; not a required dependency. Inspected against Toolbelt 3.59.2 and its pinned foundry-helpers commit `8697ee8`. Toolbelt's physical-item use helper is not in its public API, so the tracker mirrors its routing: cast scrolls/wands → system `consume()`; **Item Macro** with a linked macro (via the public `getItemMacro`) → `macro.execute({actor, item, use, cancel})`; **Use Consumable** → Toolbelt-style chat card and use/quantity decrement; otherwise the system `consume()`. The button tooltip shows which route applies. Settings are read on the user's client at click time. This is source analysis plus mocked tests, not a live Foundry interoperability test.
 
 ## Combat ally sharing
 
